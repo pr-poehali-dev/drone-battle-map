@@ -1,2329 +1,1206 @@
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 
-// ─────────────────────────────────────────────
+// ═══════════════════════════════════════════════════════════
 // TYPES
-// ─────────────────────────────────────────────
-type GamePhase = "setup" | "battle" | "paused" | "result";
-type ActiveSide = "ru" | "ua";
-type MapView = "ukraine" | "russia";
-type SpawnDir =
-  | "belgorod"
-  | "kursk"
-  | "donbas"
-  | "azov"
-  | "belarus"
-  | "voronezh"
-  | "poland"
-  | "moldova"
-  | "bsouth"
-  | "blacksea";
-type PanelTab = "attack" | "pvo" | "log";
+// ═══════════════════════════════════════════════════════════
+type Phase = "setup" | "battle" | "paused" | "result";
+type Side = "ru" | "ua";
+type Tab = "attack" | "pvo" | "log";
 
 interface WeaponDef {
-  id: string;
-  name: string;
-  hp: number;
-  speed: number;
-  dmg: number;
-  color: string;
-  stealth?: boolean;
-  ballistic?: boolean;
-  hypersonic?: boolean;
-  cruise?: boolean;
+  id: string; side: Side; name: string;
+  hp: number; speed: number; dmg: number; color: string;
+  stealth?: boolean; ballistic?: boolean; hypersonic?: boolean; cruise?: boolean;
 }
-
 interface PVODef {
-  id: string;
-  name: string;
-  range: number;
-  fireRate: number;
-  dmg: number;
-  color: string;
-  detectsStealth?: boolean;
-  antiballistic?: boolean;
+  id: string; side: Side; name: string;
+  range: number; fireRate: number; dmg: number; color: string;
+  detectsStealth?: boolean; antiballistic?: boolean;
 }
-
-interface SpawnPoint {
-  id: SpawnDir;
-  label: string;
-  x: number;
-  y: number;
-  side: "ru" | "ua";
-}
-
-interface BaseCity {
-  id: string;
-  label: string;
-  x: number;
-  y: number;
-  maxHp: number;
-  hp: number;
-}
-
-interface OrderEntry {
-  id: string;
-  weaponId: string;
-  count: number;
-  spawnDir: SpawnDir;
-  side: "ru" | "ua";
-  isPVO: boolean;
-  pvoX?: number;
-  pvoY?: number;
-}
-
+interface SpawnPt { id: string; label: string; x: number; y: number; side: Side; }
+interface City { id: string; label: string; x: number; y: number; maxHp: number; hp: number; }
 interface ActiveUnit {
-  uid: string;
-  weaponId: string;
-  x: number;
-  y: number;
-  targetX: number;
-  targetY: number;
-  hp: number;
-  maxHp: number;
-  dead: boolean;
-  intercepted: boolean;
-  side: "ru" | "ua";
-  isPVO: false;
-  color: string;
-  speed: number;
-  dmg: number;
-  stealth: boolean;
-  ballistic: boolean;
-  hypersonic: boolean;
+  uid: string; wid: string; x: number; y: number; tx: number; ty: number;
+  hp: number; maxHp: number; speed: number; dmg: number; side: Side;
+  color: string; dead: boolean; hit: boolean;
+  stealth: boolean; ballistic: boolean; hypersonic: boolean;
 }
-
 interface ActivePVO {
-  uid: string;
-  defId: string;
-  x: number;
-  y: number;
-  hp: number;
-  dead: boolean;
-  side: "ru" | "ua";
-  isPVO: true;
-  color: string;
-  range: number;
-  fireRate: number;
-  dmg: number;
-  cooldown: number;
-  detectsStealth: boolean;
-  antiballistic: boolean;
+  uid: string; pid: string; x: number; y: number;
+  range: number; fireRate: number; dmg: number; side: Side;
+  color: string; cd: number; dead: boolean;
+  detectsStealth: boolean; antiballistic: boolean;
 }
+interface Boom { uid: string; x: number; y: number; age: number; }
+interface Order { id: string; wid: string; count: number; spawnId: string; side: Side; isPVO: boolean; px?: number; py?: number; }
 
-interface Explosion {
-  uid: string;
-  x: number;
-  y: number;
-  t: number;
-}
-
-interface LogEntry {
-  t: number;
-  msg: string;
-  kind: "intercept" | "hit" | "destroy" | "info";
-}
-
-// ─────────────────────────────────────────────
+// ═══════════════════════════════════════════════════════════
 // DATA
-// ─────────────────────────────────────────────
+// ═══════════════════════════════════════════════════════════
 const RU_WEAPONS: WeaponDef[] = [
-  { id: "shahed136", name: "Shahed-136/Герань-2", hp: 2, speed: 0.8, dmg: 22, color: "#f97316" },
-  { id: "lancet3", name: "Ланцет-3", hp: 3, speed: 1.2, dmg: 18, color: "#fb923c" },
-  { id: "orlan10", name: "Орлан-10", hp: 1, speed: 1.4, dmg: 5, color: "#94a3b8", stealth: true },
-  { id: "geran", name: "Герань-1М", hp: 2, speed: 0.9, dmg: 20, color: "#ef4444" },
-  { id: "kub", name: "БПЛА КУБ-БЛА", hp: 2, speed: 1.3, dmg: 15, color: "#f59e0b" },
-  { id: "superkam", name: "SuperCam S350", hp: 1, speed: 1.1, dmg: 3, color: "#a78bfa", stealth: true },
-  { id: "kalibr", name: "3М-14 Калибр", hp: 5, speed: 1.5, dmg: 45, color: "#dc2626", cruise: true },
-  { id: "kh101", name: "Х-101", hp: 4, speed: 1.3, dmg: 50, color: "#b91c1c", stealth: true, cruise: true },
-  { id: "iskander", name: "Искандер-М (9М723)", hp: 6, speed: 2.5, dmg: 60, color: "#7c3aed", ballistic: true },
-  { id: "kinzhal", name: "Кинжал (Х-47М2)", hp: 8, speed: 4.0, dmg: 75, color: "#6d28d9", ballistic: true, hypersonic: true },
-  { id: "kh22", name: "Х-22 «Буря»", hp: 5, speed: 2.0, dmg: 65, color: "#9333ea", ballistic: true },
-  { id: "oniks", name: "П-800 Оникс", hp: 5, speed: 2.2, dmg: 55, color: "#c026d3", cruise: true },
-  { id: "kh55", name: "Х-55/Х-555", hp: 4, speed: 1.2, dmg: 48, color: "#db2777", cruise: true, stealth: true },
-  { id: "zircon", name: "Циркон (3М22)", hp: 8, speed: 5.0, dmg: 80, color: "#4f46e5", hypersonic: true, ballistic: true },
+  { id: "shahed136", side: "ru", name: "Shahed-136/Герань-2", hp: 2, speed: 0.85, dmg: 22, color: "#f97316" },
+  { id: "lancet3",   side: "ru", name: "Ланцет-3",             hp: 3, speed: 1.2,  dmg: 18, color: "#fb923c" },
+  { id: "orlan10",   side: "ru", name: "Орлан-10",             hp: 1, speed: 1.4,  dmg: 5,  color: "#94a3b8", stealth: true },
+  { id: "geran1m",   side: "ru", name: "Герань-1М",            hp: 2, speed: 0.9,  dmg: 20, color: "#ef4444" },
+  { id: "kub",       side: "ru", name: "БПЛА КУБ-БЛА",         hp: 2, speed: 1.3,  dmg: 15, color: "#f59e0b" },
+  { id: "kalibr",    side: "ru", name: "3М-14 Калибр",          hp: 5, speed: 1.5,  dmg: 45, color: "#dc2626", cruise: true },
+  { id: "kh101",     side: "ru", name: "Х-101",                hp: 4, speed: 1.3,  dmg: 50, color: "#b91c1c", stealth: true, cruise: true },
+  { id: "iskander",  side: "ru", name: "Искандер-М (9М723)",   hp: 6, speed: 2.5,  dmg: 60, color: "#7c3aed", ballistic: true },
+  { id: "kinzhal",   side: "ru", name: "Кинжал (Х-47М2)",      hp: 8, speed: 4.0,  dmg: 75, color: "#6d28d9", ballistic: true, hypersonic: true },
+  { id: "kh22",      side: "ru", name: "Х-22 «Буря»",          hp: 5, speed: 2.0,  dmg: 65, color: "#9333ea", ballistic: true },
+  { id: "oniks",     side: "ru", name: "П-800 Оникс",           hp: 5, speed: 2.2,  dmg: 55, color: "#c026d3", cruise: true },
+  { id: "kh55",      side: "ru", name: "Х-55/Х-555",           hp: 4, speed: 1.2,  dmg: 48, color: "#db2777", cruise: true, stealth: true },
+  { id: "zircon",    side: "ru", name: "Циркон (3М22)",         hp: 8, speed: 5.0,  dmg: 80, color: "#4f46e5", ballistic: true, hypersonic: true },
+];
+
+const UA_WEAPONS: WeaponDef[] = [
+  { id: "himars",    side: "ua", name: "HIMARS GMLRS",          hp: 4, speed: 1.8,  dmg: 35, color: "#3b82f6" },
+  { id: "atacms",    side: "ua", name: "MGM-140 ATACMS",        hp: 6, speed: 2.2,  dmg: 60, color: "#1d4ed8", ballistic: true },
+  { id: "tomahawk",  side: "ua", name: "BGM-109 Tomahawk",      hp: 5, speed: 1.3,  dmg: 45, color: "#2563eb", cruise: true },
+  { id: "jassm",     side: "ua", name: "AGM-158B JASSM-ER",     hp: 5, speed: 1.4,  dmg: 50, color: "#0891b2", cruise: true, stealth: true },
+  { id: "switchblade",side:"ua", name: "Switchblade 600",        hp: 2, speed: 1.0,  dmg: 18, color: "#60a5fa" },
+  { id: "phoenix",   side: "ua", name: "Phoenix Ghost",         hp: 2, speed: 1.1,  dmg: 16, color: "#93c5fd", stealth: true },
+  { id: "storm",     side: "ua", name: "Storm Shadow/SCALP-EG", hp: 5, speed: 1.3,  dmg: 50, color: "#38bdf8", cruise: true, stealth: true },
+  { id: "naval",     side: "ua", name: "Морской БЛА (MAGURA)",  hp: 3, speed: 0.7,  dmg: 30, color: "#0284c7" },
 ];
 
 const UA_PVO: PVODef[] = [
-  { id: "s300", name: "С-300ПС/ПМ", range: 180, fireRate: 20, dmg: 5, color: "#3b82f6", detectsStealth: true },
-  { id: "buk", name: "Бук-М2/М3", range: 130, fireRate: 16, dmg: 4, color: "#06b6d4" },
-  { id: "hawk", name: "MIM-23 Hawk", range: 120, fireRate: 18, dmg: 3, color: "#0891b2" },
-  { id: "patriot", name: "MIM-104 Patriot PAC-3", range: 200, fireRate: 22, dmg: 6, color: "#1d4ed8", detectsStealth: true, antiballistic: true },
-  { id: "nasams", name: "NASAMS 3", range: 140, fireRate: 14, dmg: 4, color: "#2563eb" },
-  { id: "irist", name: "IRIS-T SLM", range: 120, fireRate: 12, dmg: 3, color: "#0284c7" },
-  { id: "gepard", name: "Flakpanzer Gepard", range: 60, fireRate: 3, dmg: 1, color: "#16a34a" },
-  { id: "zu23", name: "ЗУ-23-2М Зенит", range: 45, fireRate: 2, dmg: 1, color: "#15803d" },
-  { id: "stinger", name: "FIM-92 Stinger MANPADS", range: 50, fireRate: 8, dmg: 2, color: "#65a30d" },
-  { id: "cram", name: "C-RAM Centurion", range: 55, fireRate: 2, dmg: 1, color: "#84cc16" },
-  { id: "aim120", name: "AMRAAM / AIM-120C", range: 160, fireRate: 16, dmg: 4, color: "#3b82f6" },
-  { id: "aster30", name: "Aster-30 SAMP/T", range: 170, fireRate: 18, dmg: 5, color: "#6366f1", detectsStealth: true, antiballistic: true },
+  { id: "patriot",  side: "ua", name: "MIM-104 Patriot PAC-3",        range: 200, fireRate: 22, dmg: 6, color: "#1d4ed8", detectsStealth: true, antiballistic: true },
+  { id: "nasams",   side: "ua", name: "NASAMS 3",                      range: 140, fireRate: 14, dmg: 4, color: "#2563eb" },
+  { id: "irist",    side: "ua", name: "IRIS-T SLM",                    range: 120, fireRate: 12, dmg: 3, color: "#0284c7" },
+  { id: "aster30",  side: "ua", name: "Aster-30 SAMP/T",               range: 170, fireRate: 18, dmg: 5, color: "#6366f1", detectsStealth: true, antiballistic: true },
+  { id: "s300ua",   side: "ua", name: "С-300ПС/ПМ (Укр.)",            range: 180, fireRate: 20, dmg: 5, color: "#3b82f6", detectsStealth: true },
+  { id: "buk",      side: "ua", name: "Бук-М1/М2",                     range: 130, fireRate: 16, dmg: 4, color: "#06b6d4" },
+  { id: "hawk",     side: "ua", name: "MIM-23 Hawk",                   range: 120, fireRate: 18, dmg: 3, color: "#0891b2" },
+  { id: "gepard",   side: "ua", name: "Flakpanzer Gepard",             range: 60,  fireRate: 3,  dmg: 1, color: "#16a34a" },
+  { id: "zu23",     side: "ua", name: "ЗУ-23-2М Зенит",               range: 45,  fireRate: 2,  dmg: 1, color: "#15803d" },
+  { id: "stinger",  side: "ua", name: "FIM-92 Stinger MANPADS",        range: 50,  fireRate: 8,  dmg: 2, color: "#65a30d" },
+  { id: "cram",     side: "ua", name: "C-RAM Centurion",               range: 55,  fireRate: 2,  dmg: 1, color: "#84cc16" },
+  { id: "aim120",   side: "ua", name: "AMRAAM/AIM-120C (наземный)",    range: 160, fireRate: 16, dmg: 4, color: "#4f46e5" },
 ];
 
 const RU_PVO: PVODef[] = [
-  { id: "s400", name: "С-400 Триумф", range: 220, fireRate: 20, dmg: 6, color: "#ef4444", detectsStealth: true, antiballistic: true },
-  { id: "pantsir", name: "Панцирь-С1/С2", range: 90, fireRate: 5, dmg: 2, color: "#f97316" },
-  { id: "tor", name: "Тор-М2", range: 115, fireRate: 12, dmg: 3, color: "#eab308" },
-  { id: "s350", name: "С-350 Витязь", range: 150, fireRate: 16, dmg: 4, color: "#f59e0b" },
-  { id: "tunguska", name: "2К22 Тунгуска-М1", range: 70, fireRate: 4, dmg: 1, color: "#84cc16" },
-  { id: "shilka", name: "ЗСУ-23-4 Шилка", range: 55, fireRate: 3, dmg: 1, color: "#4ade80" },
+  { id: "s400",     side: "ru", name: "С-400 Триумф",                  range: 220, fireRate: 20, dmg: 6, color: "#ef4444", detectsStealth: true, antiballistic: true },
+  { id: "pantsir",  side: "ru", name: "Панцирь-С1/С2",                range: 90,  fireRate: 5,  dmg: 2, color: "#f97316" },
+  { id: "tor",      side: "ru", name: "Тор-М2",                        range: 115, fireRate: 12, dmg: 3, color: "#eab308" },
+  { id: "s350",     side: "ru", name: "С-350 Витязь",                  range: 150, fireRate: 16, dmg: 4, color: "#f59e0b" },
+  { id: "tunguska", side: "ru", name: "2К22 Тунгуска-М1",             range: 70,  fireRate: 4,  dmg: 1, color: "#84cc16" },
+  { id: "shilka",   side: "ru", name: "ЗСУ-23-4 Шилка",               range: 55,  fireRate: 3,  dmg: 1, color: "#4ade80" },
+  { id: "s300ru",   side: "ru", name: "С-300В4 / Антей-2500",          range: 190, fireRate: 22, dmg: 5, color: "#dc2626", detectsStealth: true, antiballistic: true },
+  { id: "buk3",     side: "ru", name: "Бук-М3",                        range: 140, fireRate: 14, dmg: 4, color: "#f59e0b" },
 ];
 
-const SPAWN_POINTS: SpawnPoint[] = [
-  { id: "belgorod", label: "БЕЛГОРОД", x: 900, y: 100, side: "ru" },
-  { id: "kursk", label: "КУРСК", x: 900, y: 250, side: "ru" },
-  { id: "donbas", label: "ДОНБАС", x: 900, y: 380, side: "ru" },
-  { id: "azov", label: "АЗОВ", x: 900, y: 480, side: "ru" },
-  { id: "belarus", label: "БЕЛАРУСЬ", x: 430, y: 15, side: "ru" },
-  { id: "voronezh", label: "ВОРОНЕЖ", x: 600, y: 15, side: "ru" },
-  { id: "poland", label: "ПОЛЬША", x: 15, y: 200, side: "ua" },
-  { id: "moldova", label: "МОЛДОВА", x: 15, y: 350, side: "ua" },
-  { id: "bsouth", label: "ЧС", x: 200, y: 550, side: "ua" },
-  { id: "blacksea", label: "ЧЕРНОЕ МОРЕ", x: 550, y: 550, side: "ua" },
+// Украинские точки входа (атакуют российские цели — к востоку)
+// Российские точки входа (атакуют украинские цели — к западу)
+const ALL_SPAWNS: SpawnPt[] = [
+  // RU side — атакует с востока/севера/юга
+  { id: "belgorod", label: "БЕЛГОРОД",  x: 920, y: 80,  side: "ru" },
+  { id: "kursk",    label: "КУРСК",     x: 920, y: 200, side: "ru" },
+  { id: "donbas",   label: "ДОНБАС",    x: 920, y: 340, side: "ru" },
+  { id: "azov",     label: "АЗОВСКОЕ",  x: 820, y: 510, side: "ru" },
+  { id: "belarus",  label: "БЕЛАРУСЬ",  x: 450, y: 5,   side: "ru" },
+  { id: "crimea",   label: "КРЫМ",      x: 570, y: 510, side: "ru" },
+  // UA side — контратаки
+  { id: "poland",   label: "ПОЛЬША",    x: 10,  y: 180, side: "ua" },
+  { id: "moldova",  label: "МОЛДОВА",   x: 10,  y: 370, side: "ua" },
+  { id: "blacksea", label: "ЧЕРНОЕ М.", x: 380, y: 540, side: "ua" },
+  { id: "romania",  label: "РУМЫНИЯ",   x: 180, y: 510, side: "ua" },
 ];
 
-const INITIAL_BASES: BaseCity[] = [
-  { id: "kyiv", label: "Київ", x: 430, y: 160, maxHp: 200, hp: 200 },
-  { id: "kharkiv", label: "Харків", x: 670, y: 145, maxHp: 120, hp: 120 },
-  { id: "dnipro", label: "Дніпро", x: 550, y: 280, maxHp: 120, hp: 120 },
-  { id: "zaporizhzhia", label: "Запоріжжя", x: 560, y: 355, maxHp: 100, hp: 100 },
-  { id: "odesa", label: "Одеса", x: 375, y: 425, maxHp: 100, hp: 100 },
-  { id: "lviv", label: "Львів", x: 185, y: 185, maxHp: 100, hp: 100 },
+// Украинские города — цели для России
+const UA_CITIES: City[] = [
+  { id: "kyiv",         label: "Київ",        x: 430, y: 165, maxHp: 200, hp: 200 },
+  { id: "kharkiv",      label: "Харків",      x: 665, y: 148, maxHp: 120, hp: 120 },
+  { id: "dnipro",       label: "Дніпро",      x: 558, y: 292, maxHp: 120, hp: 120 },
+  { id: "zaporizhzhia", label: "Запоріжжя",   x: 566, y: 360, maxHp: 100, hp: 100 },
+  { id: "odesa",        label: "Одеса",       x: 365, y: 428, maxHp: 100, hp: 100 },
+  { id: "lviv",         label: "Львів",       x: 178, y: 192, maxHp: 100, hp: 100 },
+  { id: "mykolaiv",     label: "Миколаїв",    x: 440, y: 425, maxHp: 80,  hp: 80  },
+  { id: "kherson",      label: "Херсон",      x: 490, y: 430, maxHp: 80,  hp: 80  },
 ];
 
-// ─────────────────────────────────────────────
-// WEAPON ICON
-// ─────────────────────────────────────────────
-function WeaponIcon({ id, color, size = 32 }: { id: string; color: string; size?: number }) {
-  const s: React.CSSProperties = { width: size, height: size, display: "block" };
-  const isDrone = ["shahed136", "geran", "lancet3", "kub", "orlan10", "superkam"].includes(id);
-  const isCruise = ["kalibr", "kh101", "kh55", "oniks"].includes(id);
-  const isBallistic = ["iskander", "kinzhal", "kh22", "zircon"].includes(id);
+let _id = 0;
+const nid = () => `i${++_id}`;
+const d2 = (ax: number, ay: number, bx: number, by: number) =>
+  Math.sqrt((ax - bx) ** 2 + (ay - by) ** 2);
 
-  if (id === "shahed136" || id === "geran") {
-    return (
-      <svg viewBox="0 0 32 32" style={s} fill={color} stroke={color} strokeWidth="0.5">
-        <polygon points="16,3 29,25 16,20 3,25" opacity="0.95" />
-        <line x1="16" y1="3" x2="16" y2="21" stroke="#000" strokeWidth="1" />
-        <rect x="14" y="20" width="4" height="5" rx="1" fill="#222" stroke={color} strokeWidth="0.8" />
-      </svg>
-    );
-  }
-  if (id === "lancet3" || id === "kub") {
-    return (
-      <svg viewBox="0 0 32 32" style={s} fill={color} stroke={color} strokeWidth="0.5">
-        <ellipse cx="16" cy="16" rx="3" ry="10" opacity="0.95" />
-        <ellipse cx="16" cy="16" rx="10" ry="3" opacity="0.7" />
-        <circle cx="16" cy="16" r="2.5" fill="#222" stroke={color} strokeWidth="1" />
-      </svg>
-    );
-  }
-  if (id === "orlan10" || id === "superkam") {
-    return (
-      <svg viewBox="0 0 32 32" style={s} fill={color} stroke={color} strokeWidth="0.5">
-        <rect x="12" y="8" width="8" height="12" rx="2" opacity="0.9" />
-        <line x1="2" y1="13" x2="30" y2="13" strokeWidth="3" strokeLinecap="round" stroke={color} fill="none" />
-        <circle cx="16" cy="23" r="3" fill="#222" stroke={color} strokeWidth="1" />
-      </svg>
-    );
-  }
-  if (isCruise) {
-    return (
-      <svg viewBox="0 0 32 32" style={s} fill={color} stroke={color} strokeWidth="0.5">
-        <ellipse cx="16" cy="16" rx="2.5" ry="12" opacity="0.95" />
-        <polygon points="16,4 18,9 14,9" fill={color} />
-        <line x1="10" y1="18" x2="22" y2="18" strokeWidth="3" strokeLinecap="round" stroke={color} fill="none" />
-        <line x1="12" y1="22" x2="20" y2="22" strokeWidth="2" stroke={color} fill="none" />
-      </svg>
-    );
-  }
-  if (isBallistic) {
-    return (
-      <svg viewBox="0 0 32 32" style={s} fill={color} stroke={color} strokeWidth="0.5">
-        <ellipse cx="16" cy="14" rx="3.5" ry="11" opacity="0.95" />
-        <polygon points="16,3 20,10 12,10" fill={color} />
-        <polygon points="10,25 16,29 22,25 20,21 12,21" fill={color} opacity="0.7" />
-        <line x1="16" y1="3" x2="16" y2="26" stroke="#000" strokeWidth="0.8" />
-      </svg>
-    );
-  }
-  // fallback generic
-  if (isDrone) {
-    return (
-      <svg viewBox="0 0 32 32" style={s} fill={color} stroke={color} strokeWidth="0.5">
-        <polygon points="16,3 29,25 16,20 3,25" opacity="0.9" />
-        <line x1="16" y1="3" x2="16" y2="21" stroke="#000" strokeWidth="1" />
-      </svg>
-    );
-  }
-  return (
-    <svg viewBox="0 0 32 32" style={s} fill={color} stroke={color} strokeWidth="0.5">
-      <ellipse cx="16" cy="16" rx="2.5" ry="12" opacity="0.95" />
-      <polygon points="16,4 18,9 14,9" fill={color} />
-      <line x1="8" y1="19" x2="24" y2="19" strokeWidth="3" strokeLinecap="round" stroke={color} fill="none" />
-    </svg>
-  );
+// ═══════════════════════════════════════════════════════════
+// SVG ICONS
+// ═══════════════════════════════════════════════════════════
+function WIcon({ id, color, size = 22 }: { id: string; color: string; size?: number }) {
+  const c = color; const s = size;
+  // Delta-wing loitering (Shahed, Geran, Lancet-like)
+  if (["shahed136","geran1m","kub","switchblade","phoenix"].includes(id))
+    return <svg width={s} height={s} viewBox="0 0 32 32">
+      <polygon points="16,3 30,26 16,21 2,26" fill={c} opacity={.92}/>
+      <line x1="16" y1="3" x2="16" y2="22" stroke="rgba(0,0,0,.4)" strokeWidth="1"/>
+      <rect x="13" y="21" width="6" height="5" rx="1" fill={c} opacity={.7}/>
+    </svg>;
+  // Cross-body loitering (Lancet, KUB precise)
+  if (["lancet3"].includes(id))
+    return <svg width={s} height={s} viewBox="0 0 32 32">
+      <ellipse cx="16" cy="16" rx="3" ry="11" fill={c} opacity={.95}/>
+      <ellipse cx="16" cy="16" rx="11" ry="3" fill={c} opacity={.7}/>
+      <circle cx="16" cy="16" r="2.5" fill="#111" stroke={c} strokeWidth="1.2"/>
+      <line x1="16" y1="5" x2="16" y2="3" stroke={c} strokeWidth="2" strokeLinecap="round"/>
+    </svg>;
+  // Pusher-prop UAV (Orlan-10)
+  if (["orlan10"].includes(id))
+    return <svg width={s} height={s} viewBox="0 0 32 32">
+      <rect x="12" y="7" width="8" height="13" rx="2" fill={c} opacity={.9}/>
+      <line x1="2" y1="13" x2="30" y2="13" stroke={c} strokeWidth="3" strokeLinecap="round"/>
+      <line x1="8" y1="13" x2="8" y2="18" stroke={c} strokeWidth="1.5"/>
+      <line x1="24" y1="13" x2="24" y2="18" stroke={c} strokeWidth="1.5"/>
+      <circle cx="16" cy="22" r="2.5" fill="rgba(0,0,0,.5)" stroke={c} strokeWidth="1.2"/>
+    </svg>;
+  // Cruise missile (Kalibr, Kh-101, Tomahawk, Storm)
+  if (["kalibr","kh101","kh55","oniks","tomahawk","storm","jassm"].includes(id))
+    return <svg width={s} height={s} viewBox="0 0 32 32">
+      <ellipse cx="16" cy="15" rx="2.5" ry="11" fill={c} opacity={.95}/>
+      <polygon points="16,4 19,9 13,9" fill={c}/>
+      <line x1="9" y1="19" x2="23" y2="19" stroke={c} strokeWidth="3" strokeLinecap="round"/>
+      <line x1="11" y1="23" x2="21" y2="23" stroke={c} strokeWidth="2" strokeLinecap="round"/>
+      <polygon points="14,26 16,29 18,26" fill={c} opacity={.7}/>
+    </svg>;
+  // Ballistic missile (Iskander, Kinzhal, Kh-22, Zircon, ATACMS, HIMARS)
+  if (["iskander","kinzhal","kh22","zircon","atacms","himars"].includes(id))
+    return <svg width={s} height={s} viewBox="0 0 32 32">
+      <ellipse cx="16" cy="13" rx="3.5" ry="11" fill={c} opacity={.95}/>
+      <polygon points="16,2 20,8 12,8" fill={c}/>
+      <polygon points="10,24 16,28 22,24 20,20 12,20" fill={c} opacity={.7}/>
+      <line x1="16" y1="2" x2="16" y2="25" stroke="rgba(0,0,0,.35)" strokeWidth="1"/>
+    </svg>;
+  // Naval drone (MAGURA)
+  if (["naval"].includes(id))
+    return <svg width={s} height={s} viewBox="0 0 32 32">
+      <ellipse cx="16" cy="18" rx="10" ry="5" fill={c} opacity={.9}/>
+      <ellipse cx="16" cy="18" rx="7" ry="3.5" fill={c} opacity={.6}/>
+      <rect x="13" y="10" width="6" height="9" rx="2" fill={c} opacity={.8}/>
+      <line x1="16" y1="10" x2="16" y2="5" stroke={c} strokeWidth="1.5"/>
+    </svg>;
+  // Default fallback
+  return <svg width={s} height={s} viewBox="0 0 32 32">
+    <polygon points="16,3 28,24 16,20 4,24" fill={c} opacity={.9}/>
+  </svg>;
 }
 
-// ─────────────────────────────────────────────
-// PVO ICON
-// ─────────────────────────────────────────────
-function PVOIcon({ id, color, size = 32 }: { id: string; color: string; size?: number }) {
-  const s: React.CSSProperties = { width: size, height: size, display: "block" };
-  const isHeavy = ["patriot", "s300", "s400", "nasams", "aster30", "aim120"].includes(id);
-  const isTwin = ["pantsir", "gepard", "shilka", "tunguska"].includes(id);
-  const isMed = ["buk", "tor", "s350", "hawk", "irist"].includes(id);
-  const isSmall = ["stinger", "cram", "zu23"].includes(id);
-
-  if (isHeavy) {
-    return (
-      <svg viewBox="0 0 32 32" style={s} fill={color} stroke={color} strokeWidth="0.5">
-        <rect x="12" y="18" width="8" height="10" rx="1" opacity="0.9" />
-        <rect x="14" y="12" width="4" height="7" opacity="0.8" />
-        <path d="M10,8 Q16,14 22,8" fill="none" stroke={color} strokeWidth="2.5" />
-        <line x1="16" y1="8" x2="16" y2="3" strokeWidth="2" stroke={color} />
-        <rect x="20" y="5" width="4" height="7" rx="1" opacity="0.8" />
-        <circle cx="22" cy="5" r="2" fill="#222" stroke={color} strokeWidth="1" />
-      </svg>
-    );
-  }
-  if (isTwin) {
-    return (
-      <svg viewBox="0 0 32 32" style={s} fill={color} stroke={color} strokeWidth="0.5">
-        <rect x="8" y="16" width="16" height="12" rx="2" opacity="0.9" />
-        <rect x="11" y="10" width="10" height="8" rx="2" opacity="0.8" />
-        <line x1="6" y1="13" x2="11" y2="11" strokeWidth="2.5" strokeLinecap="round" stroke={color} />
-        <line x1="26" y1="13" x2="21" y2="11" strokeWidth="2.5" strokeLinecap="round" stroke={color} />
-        <circle cx="6" cy="13" r="2" fill="#222" stroke={color} strokeWidth="1" />
-        <circle cx="26" cy="13" r="2" fill="#222" stroke={color} strokeWidth="1" />
-      </svg>
-    );
-  }
-  if (isMed) {
-    return (
-      <svg viewBox="0 0 32 32" style={s} fill={color} stroke={color} strokeWidth="0.5">
-        <rect x="7" y="18" width="18" height="10" rx="2" opacity="0.9" />
-        <rect x="10" y="12" width="12" height="8" rx="1" opacity="0.8" />
-        <rect x="8" y="8" width="5" height="8" rx="1" opacity="0.7" />
-        <rect x="19" y="8" width="5" height="8" rx="1" opacity="0.7" />
-        <line x1="16" y1="12" x2="16" y2="4" strokeWidth="2" stroke={color} />
-        <circle cx="16" cy="6" r="3" fill="none" stroke={color} strokeWidth="1.5" />
-      </svg>
-    );
-  }
-  if (isSmall) {
-    return (
-      <svg viewBox="0 0 32 32" style={s} fill={color} stroke={color} strokeWidth="0.5">
-        <rect x="9" y="20" width="14" height="8" rx="2" opacity="0.9" />
-        <rect x="12" y="14" width="8" height="8" rx="1" opacity="0.8" />
-        <line x1="8" y1="16" x2="12" y2="14" strokeWidth="2" strokeLinecap="round" stroke={color} />
-        <line x1="24" y1="16" x2="20" y2="14" strokeWidth="2" strokeLinecap="round" stroke={color} />
-        <line x1="16" y1="14" x2="16" y2="6" strokeWidth="1.5" stroke={color} />
-        <circle cx="16" cy="5" r="2.5" fill="none" stroke={color} strokeWidth="1.5" />
-      </svg>
-    );
-  }
-  return (
-    <svg viewBox="0 0 32 32" style={s} fill={color} stroke={color} strokeWidth="0.5">
-      <rect x="10" y="18" width="12" height="10" rx="1" opacity="0.9" />
-      <rect x="13" y="12" width="6" height="8" opacity="0.8" />
-      <path d="M10,8 Q16,13 22,8" fill="none" stroke={color} strokeWidth="2" />
-      <line x1="16" y1="8" x2="16" y2="3" strokeWidth="2" stroke={color} />
-    </svg>
-  );
+function PIcon({ id, color, size = 22 }: { id: string; color: string; size?: number }) {
+  const c = color; const s = size;
+  // Heavy long-range SAM (Patriot, S-400, S-300, Aster-30, S-350)
+  if (["patriot","s400","s300ru","s300ua","aster30","s350"].includes(id))
+    return <svg width={s} height={s} viewBox="0 0 32 32">
+      <rect x="11" y="19" width="10" height="9" rx="1" fill={c} opacity={.85}/>
+      <rect x="13" y="13" width="6" height="7" fill={c} opacity={.9}/>
+      <path d="M9,9 Q16,15 23,9" fill="none" stroke={c} strokeWidth="2.5" strokeLinecap="round"/>
+      <line x1="16" y1="9" x2="16" y2="3" stroke={c} strokeWidth="2"/>
+      <rect x="19" y="4" width="5" height="7" rx="1" fill={c} opacity={.75}/>
+      <circle cx="21.5" cy="4.5" r="2" fill="#111" stroke={c} strokeWidth="1"/>
+    </svg>;
+  // SHORAD twin-gun (Pantsir, Gepard, Shilka, Tunguska)
+  if (["pantsir","gepard","shilka","tunguska"].includes(id))
+    return <svg width={s} height={s} viewBox="0 0 32 32">
+      <rect x="7" y="17" width="18" height="11" rx="2" fill={c} opacity={.85}/>
+      <rect x="10" y="11" width="12" height="8" rx="2" fill={c} opacity={.9}/>
+      <line x1="5" y1="14" x2="10" y2="12" stroke={c} strokeWidth="2.5" strokeLinecap="round"/>
+      <line x1="27" y1="14" x2="22" y2="12" stroke={c} strokeWidth="2.5" strokeLinecap="round"/>
+      <circle cx="5" cy="14" r="2.5" fill="#111" stroke={c} strokeWidth="1.2"/>
+      <circle cx="27" cy="14" r="2.5" fill="#111" stroke={c} strokeWidth="1.2"/>
+      <circle cx="16" cy="11" r="2" fill={c} opacity={.5}/>
+    </svg>;
+  // Medium SAM (Buk, Tor, Nasams, IRIS-T, Hawk, AIM-120)
+  if (["buk","buk3","tor","nasams","irist","hawk","aim120"].includes(id))
+    return <svg width={s} height={s} viewBox="0 0 32 32">
+      <rect x="6" y="19" width="20" height="9" rx="2" fill={c} opacity={.85}/>
+      <rect x="9" y="13" width="14" height="8" rx="1" fill={c} opacity={.9}/>
+      <rect x="7" y="8" width="5" height="9" rx="1" fill={c} opacity={.7}/>
+      <rect x="20" y="8" width="5" height="9" rx="1" fill={c} opacity={.7}/>
+      <line x1="16" y1="13" x2="16" y2="5" stroke={c} strokeWidth="2"/>
+      <circle cx="16" cy="6" r="3.5" fill="none" stroke={c} strokeWidth="1.5"/>
+      <line x1="14" y1="4.5" x2="18" y2="7.5" stroke={c} strokeWidth="1"/>
+    </svg>;
+  // MANPADS / Small (Stinger, C-RAM, ZU-23)
+  if (["stinger","cram","zu23"].includes(id))
+    return <svg width={s} height={s} viewBox="0 0 32 32">
+      <rect x="9" y="21" width="14" height="7" rx="2" fill={c} opacity={.85}/>
+      <rect x="12" y="15" width="8" height="8" rx="1" fill={c} opacity={.9}/>
+      <line x1="8" y1="17" x2="12" y2="15" stroke={c} strokeWidth="2.2" strokeLinecap="round"/>
+      <line x1="24" y1="17" x2="20" y2="15" stroke={c} strokeWidth="2.2" strokeLinecap="round"/>
+      <line x1="16" y1="15" x2="16" y2="7" stroke={c} strokeWidth="1.5"/>
+      <circle cx="16" cy="6.5" r="2.5" fill="none" stroke={c} strokeWidth="1.5"/>
+    </svg>;
+  return <svg width={s} height={s} viewBox="0 0 32 32">
+    <rect x="11" y="18" width="10" height="10" rx="1" fill={c} opacity={.85}/>
+    <line x1="16" y1="18" x2="16" y2="3" stroke={c} strokeWidth="2"/>
+    <path d="M10,8 Q16,13 22,8" fill="none" stroke={c} strokeWidth="2"/>
+  </svg>;
 }
 
-// ─────────────────────────────────────────────
-// UKRAINE MAP
-// ─────────────────────────────────────────────
-function UkraineMap({
-  bases,
-  units,
-  pvos,
-  explosions,
-  onMapClick,
-  phase,
-  placingPVO,
+// ═══════════════════════════════════════════════════════════
+// UKRAINE MAP — точный SVG контур
+// ═══════════════════════════════════════════════════════════
+// Упрощённый но правдоподобный контур Украины в системе координат 0-920 x 0-520
+const UA_PATH = `
+  M 235,25
+  L 270,18 L 315,22 L 358,15 L 400,18 L 445,12 L 490,16
+  L 530,10 L 572,18 L 608,14 L 640,22 L 672,16
+  L 705,25 L 735,20 L 762,28 L 790,38 L 808,55
+  L 825,75 L 838,98 L 845,122 L 842,148 L 835,170
+  L 820,190 L 810,215 L 818,238 L 822,262 L 818,285
+  L 808,305 L 795,322 L 775,338 L 755,350 L 738,362
+  L 718,372 L 700,368 L 680,378 L 658,388 L 635,400
+  L 612,412 L 588,422 L 562,434 L 538,444 L 514,450
+  L 490,456 L 465,452 L 440,458 L 415,462 L 388,468
+  L 362,462 L 335,452 L 308,440 L 280,428 L 255,415
+  L 228,400 L 205,385 L 185,368 L 165,348 L 148,325
+  L 132,300 L 120,272 L 112,244 L 108,216 L 108,188
+  L 112,162 L 118,138 L 125,115 L 135,92 L 148,72
+  L 165,54 L 185,40 L 210,30 Z
+`;
+
+// Крым
+const CRIMEA_PATH = `
+  M 465,455 L 498,458 L 528,454 L 555,460 L 575,472
+  L 580,490 L 568,506 L 548,516 L 520,520 L 495,518
+  L 472,510 L 455,498 L 450,482 L 455,468 Z
+`;
+
+// Днепр
+const DNIEPER_D = `
+  M 498,18 C 496,55 500,90 494,125 C 488,160 480,188 476,222
+  C 472,258 478,282 474,318 C 470,350 460,372 455,400
+  C 450,420 452,440 450,456
+`;
+
+function UkraineMapSVG({
+  cities, units, pvos, booms, onMapClick, placingPVO,
+  zoom, panX, panY
 }: {
-  bases: BaseCity[];
-  units: ActiveUnit[];
-  pvos: ActivePVO[];
-  explosions: Explosion[];
+  cities: City[]; units: ActiveUnit[]; pvos: ActivePVO[]; booms: Boom[];
   onMapClick: (x: number, y: number) => void;
-  phase: GamePhase;
-  placingPVO: boolean;
+  placingPVO: boolean; zoom: number; panX: number; panY: number;
 }) {
   const svgRef = useRef<SVGSVGElement>(null);
 
   function handleClick(e: React.MouseEvent<SVGSVGElement>) {
     if (!placingPVO) return;
     const rect = svgRef.current!.getBoundingClientRect();
-    const scaleX = 920 / rect.width;
-    const scaleY = 560 / rect.height;
-    const x = (e.clientX - rect.left) * scaleX;
-    const y = (e.clientY - rect.top) * scaleY;
-    onMapClick(x, y);
+    const mx = (e.clientX - rect.left) / zoom - panX;
+    const my = (e.clientY - rect.top)  / zoom - panY;
+    onMapClick(mx, my);
   }
+
+  const tx = `translate(${panX},${panY}) scale(${zoom})`;
 
   return (
     <svg
       ref={svgRef}
-      viewBox="0 0 920 560"
-      style={{
-        width: "100%",
-        height: "100%",
-        cursor: placingPVO ? "crosshair" : "default",
-        background: "#070d07",
-      }}
+      viewBox="0 0 930 540"
+      style={{ width: "100%", height: "100%", display: "block",
+               cursor: placingPVO ? "crosshair" : "default",
+               background: "#060c06" }}
       onClick={handleClick}
     >
-      {/* Grid */}
-      {Array.from({ length: 19 }).map((_, i) => (
-        <line
-          key={`gv${i}`}
-          x1={i * 50}
-          y1={0}
-          x2={i * 50}
-          y2={560}
-          stroke="#1a3a1a"
-          strokeWidth="0.5"
-          opacity="0.15"
-        />
-      ))}
-      {Array.from({ length: 12 }).map((_, i) => (
-        <line
-          key={`gh${i}`}
-          x1={0}
-          y1={i * 50}
-          x2={920}
-          y2={i * 50}
-          stroke="#1a3a1a"
-          strokeWidth="0.5"
-          opacity="0.15"
-        />
-      ))}
+      <defs>
+        <radialGradient id="cityGlow" cx="50%" cy="50%" r="50%">
+          <stop offset="0%" stopColor="#4ade80" stopOpacity="0.3"/>
+          <stop offset="100%" stopColor="#4ade80" stopOpacity="0"/>
+        </radialGradient>
+        <filter id="blur3"><feGaussianBlur stdDeviation="3"/></filter>
+        <filter id="glow2"><feGaussianBlur stdDeviation="2" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+      </defs>
 
-      {/* Ukraine map body */}
-      <path
-        d="M 120,80 L 180,60 L 260,55 L 340,70 L 420,60 L 500,65 L 580,55 L 650,70 L 720,60 L 790,75 L 840,100 L 860,140 L 850,180 L 820,220 L 800,260 L 820,300 L 810,340 L 780,370 L 740,390 L 700,380 L 660,400 L 620,420 L 580,430 L 540,450 L 500,460 L 460,455 L 420,465 L 380,470 L 340,460 L 300,440 L 260,430 L 220,410 L 180,390 L 150,360 L 130,320 L 110,280 L 100,240 L 105,200 L 110,160 L 115,120 Z"
-        fill="#0d1f0d"
-        stroke="#1a4a1a"
-        strokeWidth="1.5"
-      />
+      <g transform={tx}>
+        {/* === TERRAIN === */}
+        {/* Surrounding region (dark grey-green) */}
+        <rect x="-50" y="-50" width="1100" height="700" fill="#0a1208"/>
 
-      {/* Dnipro river */}
-      <path
-        d="M 490,65 C 488,110 492,140 485,180 C 478,220 470,250 468,290 C 466,330 475,350 470,390 C 465,420 455,445 450,460"
-        fill="none"
-        stroke="#0f3060"
-        strokeWidth="8"
-        opacity="0.7"
-      />
-      <path
-        d="M 490,65 C 488,110 492,140 485,180 C 478,220 470,250 468,290 C 466,330 475,350 470,390 C 465,420 455,445 450,460"
-        fill="none"
-        stroke="#1a5090"
-        strokeWidth="3"
-        opacity="0.5"
-      />
+        {/* Forest zones around Ukraine */}
+        <ellipse cx="130" cy="200" rx="100" ry="80" fill="#0c1a0c" opacity=".8"/>
+        <ellipse cx="850" cy="200" rx="90" ry="75" fill="#0c1a0c" opacity=".75"/>
+        <ellipse cx="200" cy="450" rx="80" ry="60" fill="#0c1a0c" opacity=".7"/>
+        <ellipse cx="700" cy="460" rx="95" ry="65" fill="#0c1a0c" opacity=".75"/>
 
-      {/* Crimea */}
-      <path
-        d="M 430,462 L 460,455 L 500,460 L 520,475 L 510,495 L 490,510 L 460,515 L 435,505 L 415,490 L 420,475 Z"
-        fill="#1a0a0a"
-        stroke="#4a1a1a"
-        strokeWidth="1.5"
-      />
-      <text x="465" y="490" fontSize="7" fill="#6b2a2a" fontFamily="IBM Plex Mono" textAnchor="middle">
-        КРИМ
-      </text>
+        {/* Black Sea */}
+        <ellipse cx="480" cy="530" rx="280" ry="80" fill="#0a1e3a" opacity=".9"/>
+        <ellipse cx="480" cy="535" rx="250" ry="65" fill="#0d2545" opacity=".7"/>
+        <text x="480" y="535" textAnchor="middle" fontSize="11" fill="#1a4a7a"
+          style={{fontFamily:"IBM Plex Mono"}}>ЧОРНЕ МОРЕ</text>
 
-      {/* Spawn point labels */}
-      {SPAWN_POINTS.map((sp) => {
-        const isRu = sp.side === "ru";
-        return (
-          <g key={sp.id}>
-            <circle
-              cx={sp.x}
-              cy={sp.y}
-              r={6}
-              fill={isRu ? "#ef444440" : "#3b82f640"}
-              stroke={isRu ? "#ef4444" : "#3b82f6"}
-              strokeWidth="1"
-            />
-            <text
-              x={sp.x}
-              y={sp.y - 10}
-              fontSize="6"
-              fill={isRu ? "#ef4444" : "#3b82f6"}
-              fontFamily="IBM Plex Mono"
-              textAnchor="middle"
-              opacity="0.8"
-            >
-              {sp.label}
-            </text>
+        {/* Ukraine territory */}
+        <path d={UA_PATH} fill="#0e1e0e" stroke="#1e4a1e" strokeWidth="1.5"/>
+
+        {/* Internal terrain shading */}
+        <ellipse cx="250" cy="220" rx="130" ry="80" fill="#0f200f" opacity=".5"/>
+        <ellipse cx="600" cy="180" rx="120" ry="70" fill="#0f200f" opacity=".45"/>
+        <ellipse cx="420" cy="350" rx="100" ry="60" fill="#0f200f" opacity=".4"/>
+        <ellipse cx="700" cy="300" rx="110" ry="65" fill="#0f200f" opacity=".45"/>
+
+        {/* Crimea */}
+        <path d={CRIMEA_PATH} fill="#1a0c0c" stroke="#3a1a1a" strokeWidth="1.2"/>
+        <text x="510" y="494" textAnchor="middle" fontSize="8" fill="#4a2a2a"
+          style={{fontFamily:"IBM Plex Mono"}}>КРИМ</text>
+
+        {/* Dniper river */}
+        <path d={DNIEPER_D} fill="none" stroke="#0c2855" strokeWidth="12" opacity=".8"/>
+        <path d={DNIEPER_D} fill="none" stroke="#163d7a" strokeWidth="6" opacity=".6"/>
+        <path d={DNIEPER_D} fill="none" stroke="#1e5098" strokeWidth="2" opacity=".4"/>
+
+        {/* River labels */}
+        <text x="465" y="300" textAnchor="middle" fontSize="8" fill="#1a3a6a" opacity=".7"
+          style={{fontFamily:"IBM Plex Mono"}} transform="rotate(-88,465,300)">ДНІПРО</text>
+
+        {/* Small rivers */}
+        <path d="M200,90 C210,130 215,160 205,200" fill="none" stroke="#0c2855" strokeWidth="5" opacity=".5"/>
+        <path d="M200,90 C210,130 215,160 205,200" fill="none" stroke="#163d7a" strokeWidth="2" opacity=".35"/>
+        <path d="M350,420 C380,435 410,440 430,458" fill="none" stroke="#0c2855" strokeWidth="5" opacity=".5"/>
+        <path d="M350,420 C380,435 410,440 430,458" fill="none" stroke="#163d7a" strokeWidth="2" opacity=".35"/>
+
+        {/* Forest trees */}
+        {([
+          [155,148],[168,158],[142,165],[178,155],[162,168],
+          [720,125],[735,138],[710,148],[748,132],[730,155],
+          [158,385],[172,398],[148,405],[185,392],
+          [748,402],[762,415],[738,422],[778,408],
+        ] as [number,number][]).map(([cx,cy],i)=>(
+          <g key={`t${i}`}>
+            <circle cx={cx} cy={cy} r={9} fill="#0d3318" opacity={.75}/>
+            <circle cx={cx} cy={cy-5} r={6} fill="#104020" opacity={.8}/>
+            <polygon points={`${cx},${cy-13} ${cx-4},${cy-6} ${cx+4},${cy-6}`} fill="#15542a" opacity={.7}/>
           </g>
-        );
-      })}
+        ))}
 
-      {/* City bases */}
-      {bases.map((b) => {
-        const pct = b.hp / b.maxHp;
-        const col = pct > 0.6 ? "#4ade80" : pct > 0.3 ? "#facc15" : "#ef4444";
-        return (
-          <g key={b.id}>
-            <circle cx={b.x} cy={b.y} r={10} fill="#0a1a0a" stroke={col} strokeWidth="1.5" />
-            <circle cx={b.x} cy={b.y} r={5} fill={col} opacity="0.7" />
-            <text
-              x={b.x}
-              y={b.y - 14}
-              fontSize="8"
-              fill={col}
-              fontFamily="IBM Plex Mono"
-              textAnchor="middle"
-            >
-              {b.label}
-            </text>
-            <text
-              x={b.x}
-              y={b.y + 20}
-              fontSize="6"
-              fill={col}
-              fontFamily="IBM Plex Mono"
-              textAnchor="middle"
-            >
-              {b.hp}/{b.maxHp}
-            </text>
+        {/* Lakes */}
+        <ellipse cx="298" cy="148" rx="18" ry="10" fill="#0c2855" opacity=".6"/>
+        <ellipse cx="298" cy="148" rx="13" ry="7" fill="#163d7a" opacity=".4"/>
+        <ellipse cx="660" cy="418" rx="22" ry="12" fill="#0c2855" opacity=".6"/>
+        <ellipse cx="660" cy="418" rx="16" ry="8" fill="#163d7a" opacity=".4"/>
+
+        {/* Grid overlay */}
+        {Array.from({length:19},(_,i)=>(
+          <line key={`gv${i}`} x1={i*50} y1={0} x2={i*50} y2={540} stroke="#1a3a1a" strokeWidth=".4" opacity=".2"/>
+        ))}
+        {Array.from({length:12},(_,i)=>(
+          <line key={`gh${i}`} x1={0} y1={i*50} x2={930} y2={i*50} stroke="#1a3a1a" strokeWidth=".4" opacity=".2"/>
+        ))}
+        {/* Coord labels */}
+        {Array.from({length:10},(_,i)=>(
+          <text key={`cl${i}`} x={50+i*90} y={530} textAnchor="middle" fontSize="7" fill="#1a3a1a" opacity=".5"
+            style={{fontFamily:"IBM Plex Mono"}}>{String.fromCharCode(65+i)}</text>
+        ))}
+        {Array.from({length:10},(_,i)=>(
+          <text key={`rn${i}`} x={12} y={30+i*50} fontSize="7" fill="#1a3a1a" opacity=".5"
+            style={{fontFamily:"IBM Plex Mono"}}>{i+1}</text>
+        ))}
+
+        {/* Spawn markers */}
+        {ALL_SPAWNS.map(sp=>{
+          const isRu = sp.side==="ru";
+          const col = isRu ? "#ef4444" : "#3b82f6";
+          return (
+            <g key={sp.id}>
+              <rect x={sp.x-22} y={sp.y-9} width={44} height={18} rx={3}
+                fill="#0d130d" stroke={col} strokeWidth="1" opacity=".9"/>
+              <text x={sp.x} y={sp.y+4} textAnchor="middle" fontSize="7"
+                fill={col} style={{fontFamily:"IBM Plex Mono",fontWeight:"bold"}}>{sp.label}</text>
+            </g>
+          );
+        })}
+
+        {/* PVO range rings */}
+        {pvos.filter(p=>!p.dead).map(p=>(
+          <circle key={`pr${p.uid}`} cx={p.x} cy={p.y} r={p.range}
+            fill={p.color+"0a"} stroke={p.color} strokeWidth=".8"
+            strokeDasharray="5 7" opacity=".35"/>
+        ))}
+
+        {/* City glow halos */}
+        {cities.map(c=>c.hp>0&&(
+          <circle key={`ch${c.id}`} cx={c.x} cy={c.y} r={42}
+            fill="url(#cityGlow)" opacity={.6}/>
+        ))}
+
+        {/* Cities */}
+        {cities.map(c=>{
+          const pct = c.hp/c.maxHp;
+          const col = pct>0.6?"#4ade80":pct>0.3?"#facc15":"#ef4444";
+          return (
+            <g key={c.id}>
+              <circle cx={c.x} cy={c.y} r={11}
+                fill="#0d1a0d" stroke={col} strokeWidth="1.8" filter="url(#glow2)"/>
+              <circle cx={c.x} cy={c.y} r={5} fill={col} opacity={.75}/>
+              <text x={c.x} y={c.y-15} textAnchor="middle" fontSize="9" fill={col}
+                style={{fontFamily:"IBM Plex Mono",fontWeight:"bold"}}>{c.label}</text>
+              {/* HP bar */}
+              <rect x={c.x-20} y={c.y+14} width={40} height={4} fill="#0a0f0a" rx={2}/>
+              <rect x={c.x-20} y={c.y+14} width={40*pct} height={4} fill={col} rx={2}/>
+              <text x={c.x} y={c.y+28} textAnchor="middle" fontSize="7" fill="#6b7a6b"
+                style={{fontFamily:"IBM Plex Mono"}}>{c.hp}/{c.maxHp}</text>
+            </g>
+          );
+        })}
+
+        {/* PVO units */}
+        {pvos.filter(p=>!p.dead).map(p=>{
+          const pdef = [...UA_PVO,...RU_PVO].find(d=>d.id===p.pid);
+          return (
+            <g key={p.uid}>
+              <circle cx={p.x} cy={p.y} r={14} fill="#0a130a" stroke={p.color} strokeWidth="1.5"/>
+              <g transform={`translate(${p.x-8},${p.y-8})`}>
+                <PIcon id={p.pid} color={p.color} size={16}/>
+              </g>
+            </g>
+          );
+        })}
+
+        {/* Unit trails + units */}
+        {units.filter(u=>!u.dead&&!u.hit).map(u=>{
+          const ang = Math.atan2(u.ty-u.y, u.tx-u.x)*(180/Math.PI)+90;
+          return (
+            <g key={u.uid} transform={`translate(${u.x},${u.y}) rotate(${ang})`}>
+              <g transform="translate(-9,-9)">
+                <WIcon id={u.wid} color={u.color} size={18}/>
+              </g>
+            </g>
+          );
+        })}
+
+        {/* Explosions */}
+        {booms.map(b=>{
+          const op = Math.max(0,1-b.age/35);
+          const r = 6+b.age*0.9;
+          return (
+            <g key={b.uid}>
+              <circle cx={b.x} cy={b.y} r={r*1.6} fill="#f97316" opacity={op*0.35}/>
+              <circle cx={b.x} cy={b.y} r={r} fill="#fb923c" opacity={op*0.7}/>
+              <circle cx={b.x} cy={b.y} r={r*0.5} fill="#fef08a" opacity={op*0.9}/>
+              <circle cx={b.x} cy={b.y} r={r*0.2} fill="white" opacity={op}/>
+            </g>
+          );
+        })}
+
+        {/* Placing hint */}
+        {placingPVO&&(
+          <g>
+            <rect x={300} y={245} width={330} height={32} rx={5}
+              fill="#0d1a0d" stroke="#facc15" strokeWidth="1.2" opacity=".95"/>
+            <text x={465} y={266} textAnchor="middle" fontSize="11" fill="#facc15"
+              style={{fontFamily:"IBM Plex Mono"}}>КЛИКНИТЕ НА КАРТЕ ДЛЯ РАЗМЕЩЕНИЯ ПВО</text>
           </g>
-        );
-      })}
+        )}
 
-      {/* PVO units on map */}
-      {pvos.map((pvo) => {
-        if (pvo.dead) return null;
-        const isRu = pvo.side === "ru";
-        return (
-          <g key={pvo.uid}>
-            <circle
-              cx={pvo.x}
-              cy={pvo.y}
-              r={pvo.range}
-              fill={pvo.color + "15"}
-              stroke={pvo.color + "50"}
-              strokeWidth="1"
-              strokeDasharray="4 3"
-            />
-            <circle cx={pvo.x} cy={pvo.y} r={7} fill="#0a1a0a" stroke={pvo.color} strokeWidth="1.5" />
-            <text
-              x={pvo.x}
-              y={pvo.y + 2}
-              fontSize="6"
-              fill={pvo.color}
-              textAnchor="middle"
-              fontFamily="IBM Plex Mono"
-            >
-              {isRu ? "Д" : "П"}
-            </text>
-          </g>
-        );
-      })}
-
-      {/* Active weapon units */}
-      {units.map((u) => {
-        if (u.dead || u.intercepted) return null;
-        const isRu = u.side === "ru";
-        const angle =
-          (Math.atan2(u.targetY - u.y, u.targetX - u.x) * 180) / Math.PI + 90;
-        return (
-          <g
-            key={u.uid}
-            transform={`translate(${u.x},${u.y}) rotate(${angle})`}
-          >
-            <polygon
-              points="0,-7 4,5 0,2 -4,5"
-              fill={u.color}
-              opacity="0.9"
-              stroke={isRu ? "#ff000040" : "#0000ff40"}
-              strokeWidth="0.5"
-            />
-          </g>
-        );
-      })}
-
-      {/* Explosions */}
-      {explosions.map((ex) => {
-        const opacity = Math.max(0, 1 - ex.t / 40);
-        const r = 5 + ex.t * 0.8;
-        return (
-          <g key={ex.uid}>
-            <circle cx={ex.x} cy={ex.y} r={r} fill="#ff6600" opacity={opacity * 0.6} />
-            <circle cx={ex.x} cy={ex.y} r={r * 0.5} fill="#ffcc00" opacity={opacity} />
-          </g>
-        );
-      })}
-
-      {/* Placing PVO hint */}
-      {placingPVO && phase === "setup" && (
-        <text
-          x="460"
-          y="30"
-          fontSize="10"
-          fill="#facc15"
-          textAnchor="middle"
-          fontFamily="IBM Plex Mono"
-        >
-          КЛИКНИТЕ НА КАРТЕ ДЛЯ РАЗМЕЩЕНИЯ ПВО
+        {/* Map title */}
+        <text x="465" y="22" textAnchor="middle" fontSize="9" fill="#1e4a1e"
+          style={{fontFamily:"IBM Plex Mono",letterSpacing:"3px"}}>
+          ТЕАТР БОЕВИХ ДІЙ
         </text>
-      )}
-
-      {/* Title */}
-      <text
-        x="460"
-        y="14"
-        fontSize="9"
-        fill="#1a4a1a"
-        textAnchor="middle"
-        fontFamily="IBM Plex Mono"
-        letterSpacing="2"
-      >
-        ТЕАТР БОЕВЫХ ДЕЙСТВИЙ
-      </text>
+      </g>
     </svg>
   );
 }
 
-// ─────────────────────────────────────────────
-// HELPERS
-// ─────────────────────────────────────────────
-function uid(): string {
-  return Math.random().toString(36).slice(2, 10);
+// ═══════════════════════════════════════════════════════════
+// BADGE
+// ═══════════════════════════════════════════════════════════
+function Bdg({label,col}:{label:string;col:string}) {
+  return <span style={{
+    background:col+"22",border:`1px solid ${col}`,color:col,
+    fontSize:8,padding:"1px 5px",borderRadius:2,
+    fontFamily:"IBM Plex Mono",display:"inline-block",lineHeight:"14px",marginRight:2
+  }}>{label}</span>;
 }
 
-function dist(ax: number, ay: number, bx: number, by: number): number {
-  return Math.sqrt((ax - bx) ** 2 + (ay - by) ** 2);
-}
-
-function getWeaponDef(id: string): WeaponDef | undefined {
-  return RU_WEAPONS.find((w) => w.id === id);
-}
-
-function getPVODef(id: string, side: "ru" | "ua"): PVODef | undefined {
-  const list = side === "ua" ? UA_PVO : RU_PVO;
-  return list.find((p) => p.id === id);
-}
-
-function getSpawnPoint(dir: SpawnDir): SpawnPoint {
-  return SPAWN_POINTS.find((sp) => sp.id === dir)!;
-}
-
-// ─────────────────────────────────────────────
-// SUB-COMPONENTS
-// ─────────────────────────────────────────────
-function Badge({ label, variant }: { label: string; variant: "stealth" | "ballistic" | "hyper" | "antiball" | "cruise" }) {
-  const colors: Record<string, string> = {
-    stealth: "#7c3aed",
-    ballistic: "#dc2626",
-    hyper: "#6d28d9",
-    antiball: "#1d4ed8",
-    cruise: "#0891b2",
-  };
-  return (
-    <span
-      style={{
-        background: colors[variant] + "33",
-        border: `1px solid ${colors[variant]}`,
-        color: colors[variant],
-        fontSize: 8,
-        padding: "1px 4px",
-        borderRadius: 2,
-        fontFamily: "IBM Plex Mono",
-        marginRight: 2,
-        display: "inline-block",
-        lineHeight: "14px",
-      }}
-    >
-      {label}
-    </span>
-  );
-}
-
-function WeaponCard({
-  w,
-  selected,
-  onSelect,
-}: {
-  w: WeaponDef;
-  selected: boolean;
-  onSelect: () => void;
-}) {
-  return (
-    <div
-      onClick={onSelect}
-      style={{
-        background: selected ? w.color + "22" : "#0d160d",
-        border: `1px solid ${selected ? w.color : "#1a3a1a"}`,
-        borderRadius: 4,
-        padding: "6px 8px",
-        cursor: "pointer",
-        marginBottom: 4,
-        display: "flex",
-        alignItems: "center",
-        gap: 8,
-        transition: "all 0.15s",
-      }}
-    >
-      <WeaponIcon id={w.id} color={w.color} size={24} />
-      <div style={{ flex: 1, minWidth: 0 }}>
-        <div
-          style={{
-            color: selected ? w.color : "#c8d4c8",
-            fontSize: 9,
-            fontFamily: "IBM Plex Mono",
-            fontWeight: selected ? "bold" : "normal",
-            whiteSpace: "nowrap",
-            overflow: "hidden",
-            textOverflow: "ellipsis",
-          }}
-        >
-          {w.name}
-        </div>
-        <div style={{ display: "flex", gap: 4, marginTop: 2, flexWrap: "wrap" }}>
-          {w.stealth && <Badge label="СТЕЛС" variant="stealth" />}
-          {w.ballistic && <Badge label="БАЛЛИСТ" variant="ballistic" />}
-          {w.hypersonic && <Badge label="ГИПЕР" variant="hyper" />}
-          {w.cruise && <Badge label="КРЫЛАТ" variant="cruise" />}
-        </div>
-        <div
-          style={{
-            color: "#4a6a4a",
-            fontSize: 8,
-            fontFamily: "IBM Plex Mono",
-            marginTop: 2,
-          }}
-        >
-          HP:{w.hp} СКР:{w.speed} УРН:{w.dmg}
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function PVOCard({
-  p,
-  selected,
-  onSelect,
-  side,
-}: {
-  p: PVODef;
-  selected: boolean;
-  onSelect: () => void;
-  side: "ru" | "ua";
-}) {
-  return (
-    <div
-      onClick={onSelect}
-      style={{
-        background: selected ? p.color + "22" : "#0d160d",
-        border: `1px solid ${selected ? p.color : "#1a3a1a"}`,
-        borderRadius: 4,
-        padding: "6px 8px",
-        cursor: "pointer",
-        marginBottom: 4,
-        display: "flex",
-        alignItems: "center",
-        gap: 8,
-        transition: "all 0.15s",
-      }}
-    >
-      <PVOIcon id={p.id} color={p.color} size={24} />
-      <div style={{ flex: 1, minWidth: 0 }}>
-        <div
-          style={{
-            color: selected ? p.color : "#c8d4c8",
-            fontSize: 9,
-            fontFamily: "IBM Plex Mono",
-            fontWeight: selected ? "bold" : "normal",
-            whiteSpace: "nowrap",
-            overflow: "hidden",
-            textOverflow: "ellipsis",
-          }}
-        >
-          {p.name}
-        </div>
-        <div style={{ display: "flex", gap: 4, marginTop: 2, flexWrap: "wrap" }}>
-          {p.detectsStealth && <Badge label="СТЕЛС" variant="stealth" />}
-          {p.antiballistic && <Badge label="ЗПРР" variant="antiball" />}
-        </div>
-        <div
-          style={{
-            color: "#4a6a4a",
-            fontSize: 8,
-            fontFamily: "IBM Plex Mono",
-            marginTop: 2,
-          }}
-        >
-          РД:{p.range} СКС:{p.fireRate} УРН:{p.dmg}
-        </div>
-      </div>
-      <div
-        style={{
-          fontSize: 7,
-          color: side === "ru" ? "#ef4444" : "#3b82f6",
-          fontFamily: "IBM Plex Mono",
-          textAlign: "right",
-          lineHeight: "12px",
-        }}
-      >
-        {side === "ru" ? "РУС" : "НАТ"}
-        <br />
-        ПВО
-      </div>
-    </div>
-  );
-}
-
-function SpawnBtn({
-  sp,
-  selected,
-  onSelect,
-  side,
-}: {
-  sp: SpawnPoint;
-  selected: boolean;
-  onSelect: () => void;
-  side: "ru" | "ua";
-}) {
-  const isOwnSide = sp.side === side;
-  if (!isOwnSide) return null;
-  const col = side === "ru" ? "#ef4444" : "#3b82f6";
-  return (
-    <button
-      onClick={onSelect}
-      style={{
-        background: selected ? col + "33" : "#0d160d",
-        border: `1px solid ${selected ? col : "#1a3a1a"}`,
-        borderRadius: 3,
-        padding: "4px 6px",
-        color: selected ? col : "#4a6a4a",
-        fontSize: 8,
-        fontFamily: "IBM Plex Mono",
-        cursor: "pointer",
-        margin: 2,
-        minWidth: 60,
-        transition: "all 0.12s",
-      }}
-    >
-      {sp.label}
-    </button>
-  );
-}
-
-function OrderRow({ o, onRemove }: { o: OrderEntry; onRemove: () => void }) {
-  const wdef = o.isPVO
-    ? (o.side === "ua" ? UA_PVO : RU_PVO).find((p) => p.id === o.weaponId)
-    : RU_WEAPONS.find((w) => w.id === o.weaponId);
-  if (!wdef) return null;
-  const col = o.side === "ru" ? "#f97316" : "#3b82f6";
-  const spLabel = o.isPVO ? "КАРТА" : (SPAWN_POINTS.find((s) => s.id === o.spawnDir)?.label ?? "—");
-
-  return (
-    <div
-      style={{
-        display: "flex",
-        alignItems: "center",
-        gap: 6,
-        padding: "3px 6px",
-        borderBottom: "1px solid #1a2a1a",
-        fontSize: 8,
-        fontFamily: "IBM Plex Mono",
-        color: "#8aaa8a",
-      }}
-    >
-      {o.isPVO ? (
-        <PVOIcon id={o.weaponId} color={col} size={16} />
-      ) : (
-        <WeaponIcon id={o.weaponId} color={col} size={16} />
-      )}
-      <span style={{ flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-        {wdef.name}
-      </span>
-      <span style={{ color: col }}>×{o.count}</span>
-      <span style={{ color: "#4a5a4a" }}>{spLabel}</span>
-      <button
-        onClick={onRemove}
-        style={{
-          background: "none",
-          border: "none",
-          color: "#ef4444",
-          cursor: "pointer",
-          fontSize: 10,
-          padding: "0 2px",
-          lineHeight: 1,
-        }}
-      >
-        ×
-      </button>
-    </div>
-  );
-}
-
-function LogLine({ entry }: { entry: LogEntry }) {
-  const colors: Record<string, string> = {
-    intercept: "#4ade80",
-    hit: "#f97316",
-    destroy: "#ef4444",
-    info: "#6b8a6b",
-  };
-  return (
-    <div
-      style={{
-        fontSize: 8,
-        fontFamily: "IBM Plex Mono",
-        color: colors[entry.kind],
-        padding: "1px 4px",
-        borderBottom: "1px solid #0f1f0f",
-      }}
-    >
-      [{entry.t}с] {entry.msg}
-    </div>
-  );
-}
-
-// ─────────────────────────────────────────────
-// MAIN COMPONENT
-// ─────────────────────────────────────────────
+// ═══════════════════════════════════════════════════════════
+// MAIN
+// ═══════════════════════════════════════════════════════════
 export default function Index() {
-  const [phase, setPhase] = useState<GamePhase>("setup");
-  const [activeSide, setActiveSide] = useState<ActiveSide>("ru");
-  const [mapView] = useState<MapView>("ukraine");
-  const [panelTab, setPanelTab] = useState<PanelTab>("attack");
+  const [phase, setPhase] = useState<Phase>("setup");
+  const [side, setSide] = useState<Side>("ru");
+  const [tab, setTab] = useState<Tab>("attack");
 
-  // Selection state
-  const [selectedWeapon, setSelectedWeapon] = useState<string>("shahed136");
-  const [selectedPVO, setSelectedPVO] = useState<string>("patriot");
-  const [selectedSpawn, setSelectedSpawn] = useState<SpawnDir>("belgorod");
-  const [spawnCount, setSpawnCount] = useState<number>(1);
-  const [placingPVO, setPlacingPVO] = useState<boolean>(false);
+  const [selW, setSelW] = useState("shahed136");
+  const [selP, setSelP] = useState("patriot");
+  const [selSp, setSelSp] = useState("belgorod");
+  const [cnt, setCnt] = useState(1);
+  const [placingPVO, setPlacingPVO] = useState(false);
+  const [orders, setOrders] = useState<Order[]>([]);
 
-  // Orders
-  const [orders, setOrders] = useState<OrderEntry[]>([]);
-
-  // Simulation state
-  const [bases, setBases] = useState<BaseCity[]>(INITIAL_BASES.map((b) => ({ ...b })));
+  const [cities, setCities] = useState<City[]>(UA_CITIES.map(c=>({...c})));
   const [units, setUnits] = useState<ActiveUnit[]>([]);
   const [pvos, setPvos] = useState<ActivePVO[]>([]);
-  const [explosions, setExplosions] = useState<Explosion[]>([]);
-  const [log, setLog] = useState<LogEntry[]>([]);
-  const [tick, setTick] = useState<number>(0);
+  const [booms, setBooms] = useState<Boom[]>([]);
+  const [log, setLog] = useState<{t:number;msg:string;kind:string}[]>([]);
 
-  const rafRef = useRef<number | null>(null);
-  const lastTickRef = useRef<number>(0);
-  const tickRef = useRef<number>(0);
-  const logRef = useRef<LogEntry[]>([]);
+  // Zoom / pan state
+  const [zoom, setZoom] = useState(1);
+  const [panX, setPanX] = useState(0);
+  const [panY, setPanY] = useState(0);
+  const isDragging = useRef(false);
+  const lastMouse = useRef({x:0,y:0});
+  const mapContainerRef = useRef<HTMLDivElement>(null);
 
-  // Sync tick ref
-  useEffect(() => {
-    tickRef.current = tick;
-  }, [tick]);
-  useEffect(() => {
-    logRef.current = log;
-  }, [log]);
+  // Refs for game loop (avoid stale closures)
+  const unitsR  = useRef<ActiveUnit[]>([]);
+  const pvosR   = useRef<ActivePVO[]>([]);
+  const citiesR = useRef<City[]>(UA_CITIES.map(c=>({...c})));
+  const boomsR  = useRef<Boom[]>([]);
+  const phaseR  = useRef<Phase>("setup");
+  const tickR   = useRef(0);
+  const rafR    = useRef<number|null>(null);
+  const lastT   = useRef(0);
 
-  // ── Add order
-  function addAttackOrder() {
-    if (panelTab !== "attack") return;
-    const sp = SPAWN_POINTS.find((s) => s.id === selectedSpawn);
-    if (!sp || sp.side !== activeSide) return;
-    const existing = orders.find(
-      (o) => !o.isPVO && o.weaponId === selectedWeapon && o.spawnDir === selectedSpawn && o.side === activeSide
-    );
-    if (existing) {
-      setOrders((prev) =>
-        prev.map((o) =>
-          o.id === existing.id ? { ...o, count: o.count + spawnCount } : o
-        )
-      );
-    } else {
-      setOrders((prev) => [
-        ...prev,
-        {
-          id: uid(),
-          weaponId: selectedWeapon,
-          count: spawnCount,
-          spawnDir: selectedSpawn,
-          side: activeSide,
-          isPVO: false,
-        },
-      ]);
-    }
+  useEffect(()=>{unitsR.current=units;},[units]);
+  useEffect(()=>{pvosR.current=pvos;},[pvos]);
+  useEffect(()=>{citiesR.current=cities;},[cities]);
+  useEffect(()=>{boomsR.current=booms;},[booms]);
+  useEffect(()=>{phaseR.current=phase;},[phase]);
+
+  // ── Zoom / Pan handlers ──
+  function handleWheel(e: React.WheelEvent) {
+    e.preventDefault();
+    const delta = e.deltaY > 0 ? 0.9 : 1.1;
+    setZoom(z => Math.min(4, Math.max(0.4, z * delta)));
   }
+  function handleMouseDown(e: React.MouseEvent) {
+    if (placingPVO) return;
+    isDragging.current = true;
+    lastMouse.current = {x: e.clientX, y: e.clientY};
+  }
+  function handleMouseMove(e: React.MouseEvent) {
+    if (!isDragging.current) return;
+    const dx = (e.clientX - lastMouse.current.x) / zoom;
+    const dy = (e.clientY - lastMouse.current.y) / zoom;
+    lastMouse.current = {x: e.clientX, y: e.clientY};
+    setPanX(p => p + dx);
+    setPanY(p => p + dy);
+  }
+  function handleMouseUp() { isDragging.current = false; }
 
-  // ── Add PVO by map click
+  // ── PVO map click ──
   function handleMapClick(x: number, y: number) {
-    if (phase !== "setup" || !placingPVO) return;
-    const pvoList = activeSide === "ua" ? UA_PVO : RU_PVO;
-    const def = pvoList.find((p) => p.id === selectedPVO);
+    if (!placingPVO || phase !== "setup") return;
+    const plist = side === "ua" ? UA_PVO : RU_PVO;
+    const def = plist.find(p => p.id === selP);
     if (!def) return;
-    for (let i = 0; i < spawnCount; i++) {
-      setOrders((prev) => [
-        ...prev,
-        {
-          id: uid(),
-          weaponId: def.id,
-          count: 1,
-          spawnDir: "poland" as SpawnDir,
-          side: activeSide,
-          isPVO: true,
-          pvoX: x + (i * 20 - (spawnCount * 10) / 2),
-          pvoY: y,
-        },
-      ]);
+    const newOrders: Order[] = [];
+    for (let i = 0; i < cnt; i++) {
+      newOrders.push({
+        id: nid(), wid: def.id, count: 1, spawnId: "map",
+        side, isPVO: true,
+        px: x + (i - Math.floor(cnt/2)) * 22,
+        py: y,
+      });
     }
+    setOrders(prev => [...prev, ...newOrders]);
     setPlacingPVO(false);
+    addMsg(`${def.name} ×${cnt} размещена`, "info");
   }
 
-  // ── Start battle
-  const startBattle = useCallback(() => {
-    const newUnits: ActiveUnit[] = [];
-    const newPvos: ActivePVO[] = [];
+  function addMsg(msg: string, kind: string) {
+    setLog(prev => [{t: tickR.current, msg, kind}, ...prev].slice(0, 120));
+  }
 
-    orders.forEach((order) => {
-      if (order.isPVO) {
-        const def = getPVODef(order.weaponId, order.side);
-        if (!def) return;
-        const x = order.pvoX ?? 400;
-        const y = order.pvoY ?? 300;
-        newPvos.push({
-          uid: uid(),
-          defId: def.id,
-          x,
-          y,
-          hp: 30,
-          dead: false,
-          side: order.side,
-          isPVO: true,
-          color: def.color,
-          range: def.range,
-          fireRate: def.fireRate,
-          dmg: def.dmg,
-          cooldown: 0,
-          detectsStealth: def.detectsStealth ?? false,
-          antiballistic: def.antiballistic ?? false,
-        });
-      } else {
-        const wdef = getWeaponDef(order.weaponId);
-        if (!wdef) return;
-        const sp = getSpawnPoint(order.spawnDir);
-        const uaBases = bases.filter((b) => b.hp > 0);
-        for (let i = 0; i < order.count; i++) {
-          if (uaBases.length === 0) break;
-          const target = uaBases[Math.floor(Math.random() * uaBases.length)];
-          newUnits.push({
-            uid: uid(),
-            weaponId: wdef.id,
-            x: sp.x + (Math.random() - 0.5) * 30,
-            y: sp.y + (Math.random() - 0.5) * 30,
-            targetX: target.x,
-            targetY: target.y,
-            hp: wdef.hp,
-            maxHp: wdef.hp,
-            dead: false,
-            intercepted: false,
-            side: order.side,
-            isPVO: false,
-            color: wdef.color,
-            speed: wdef.speed * (1 + (Math.random() - 0.5) * 0.2),
-            dmg: wdef.dmg,
-            stealth: wdef.stealth ?? false,
-            ballistic: wdef.ballistic ?? false,
-            hypersonic: wdef.hypersonic ?? false,
-          });
-        }
-      }
-    });
-
-    setUnits(newUnits);
-    setPvos(newPvos);
-    setExplosions([]);
-    setLog([]);
-    setTick(0);
-    lastTickRef.current = performance.now();
-    setPhase("battle");
-  }, [orders, bases]);
-
-  // ── Game loop
-  const gameLoop = useCallback(() => {
-    const now = performance.now();
-    if (now - lastTickRef.current < 50) {
-      rafRef.current = requestAnimationFrame(gameLoop);
-      return;
+  // ── Add attack order ──
+  function addOrder() {
+    const sp = ALL_SPAWNS.find(s => s.id === selSp);
+    if (!sp || sp.side !== side) {
+      addMsg("Выберите точку входа своей стороны!", "info"); return;
     }
-    lastTickRef.current = now;
-
-    setTick((t) => t + 1);
-
-    setUnits((prevUnits) => {
-      setPvos((prevPvos) => {
-        setBases((prevBases) => {
-          const newExplosions: Explosion[] = [];
-          const newLog: LogEntry[] = [];
-          const currentTick = tickRef.current;
-
-          // Move units
-          const movedUnits = prevUnits.map((u) => {
-            if (u.dead || u.intercepted) return u;
-            const d = dist(u.x, u.y, u.targetX, u.targetY);
-            if (d < 8) return u; // will be handled below
-            const vx = ((u.targetX - u.x) / d) * u.speed * 1.2;
-            const vy = ((u.targetY - u.y) / d) * u.speed * 1.2;
-            return { ...u, x: u.x + vx, y: u.y + vy };
-          });
-
-          // PVO fire
-          const updatedPvos = prevPvos.map((pvo) => {
-            if (pvo.dead) return pvo;
-            if (pvo.cooldown > 0) return { ...pvo, cooldown: pvo.cooldown - 1 };
-            return pvo;
-          });
-
-          // Check intercepts
-          const interceptedIds = new Set<string>();
-          const updatedPvos2 = updatedPvos.map((pvo) => {
-            if (pvo.dead || pvo.cooldown > 0) return pvo;
-            for (const u of movedUnits) {
-              if (u.dead || u.intercepted || interceptedIds.has(u.uid)) continue;
-              // stealth check
-              if (u.stealth && !pvo.detectsStealth) continue;
-              // ballistic check
-              if (u.ballistic && !pvo.antiballistic && pvo.range < 120) continue;
-              const d = dist(pvo.x, pvo.y, u.x, u.y);
-              if (d <= pvo.range) {
-                interceptedIds.add(u.uid);
-                newExplosions.push({ uid: uid(), x: u.x, y: u.y, t: 0 });
-                newLog.push({
-                  t: currentTick,
-                  msg: `ПВО уничтожило ${u.weaponId} [${Math.round(u.x)},${Math.round(u.y)}]`,
-                  kind: "intercept",
-                });
-                return { ...pvo, cooldown: Math.max(1, Math.round(60 / pvo.fireRate)) };
-              }
-            }
-            return pvo;
-          });
-
-          // Apply intercepts
-          const finalUnits = movedUnits.map((u) =>
-            interceptedIds.has(u.uid) ? { ...u, intercepted: true } : u
-          );
-
-          // Check hits on bases
-          const hitBaseIds = new Set<string>();
-          const hitByUnit: { uid: string; baseId: string; dmg: number }[] = [];
-          for (const u of finalUnits) {
-            if (u.dead || u.intercepted) continue;
-            for (const b of prevBases) {
-              if (b.hp <= 0) continue;
-              const d = dist(u.x, u.y, b.x, b.y);
-              if (d < 12) {
-                hitByUnit.push({ uid: u.uid, baseId: b.id, dmg: u.dmg });
-                hitBaseIds.add(b.id);
-                newExplosions.push({ uid: uid(), x: u.x, y: u.y, t: 0 });
-                newLog.push({
-                  t: currentTick,
-                  msg: `${b.label} поражена! -${u.dmg} HP (${u.weaponId})`,
-                  kind: "hit",
-                });
-              }
-            }
-          }
-
-          // Update bases
-          const updatedBases = prevBases.map((b) => {
-            const hits = hitByUnit.filter((h) => h.baseId === b.id);
-            const totalDmg = hits.reduce((acc, h) => acc + h.dmg, 0);
-            const newHp = Math.max(0, b.hp - totalDmg);
-            if (newHp <= 0 && b.hp > 0) {
-              newLog.push({ t: currentTick, msg: `${b.label} УНИЧТОЖЕНА!`, kind: "destroy" });
-            }
-            return { ...b, hp: newHp };
-          });
-
-          // Mark hit units as dead
-          const hitUnitIds = new Set(hitByUnit.map((h) => h.uid));
-          const finalUnits2 = finalUnits.map((u) =>
-            hitUnitIds.has(u.uid) ? { ...u, dead: true } : u
-          );
-
-          // Expire explosions
-          setExplosions((prev) => {
-            const alive = prev
-              .map((e) => ({ ...e, t: e.t + 1 }))
-              .filter((e) => e.t < 40);
-            return [...alive, ...newExplosions];
-          });
-
-          if (newLog.length > 0) {
-            setLog((prev) => [...newLog, ...prev].slice(0, 80));
-          }
-
-          // Check end condition
-          const allDead = finalUnits2.every((u) => u.dead || u.intercepted);
-          const allDestroyed = updatedBases.every((b) => b.hp <= 0);
-          if (allDead || allDestroyed) {
-            setTimeout(() => setPhase("result"), 600);
-          }
-
-          // Write back pvos
-          setTimeout(() => setPvos(updatedPvos2), 0);
-
-          return updatedBases;
-        });
-        return prevPvos; // will be overwritten by setTimeout above
-      });
-      return prevUnits; // will be overwritten
+    const wlist = side === "ru" ? RU_WEAPONS : UA_WEAPONS;
+    const def = wlist.find(w => w.id === selW);
+    if (!def) return;
+    setOrders(prev => {
+      const ex = prev.find(o => !o.isPVO && o.wid === selW && o.spawnId === selSp && o.side === side);
+      if (ex) return prev.map(o => o.id === ex.id ? {...o, count: o.count + cnt} : o);
+      return [...prev, {id: nid(), wid: selW, count: cnt, spawnId: selSp, side, isPVO: false}];
     });
+  }
 
-    rafRef.current = requestAnimationFrame(gameLoop);
-  }, []);
-
-  // Proper game loop with direct state refs
-  const unitsRef = useRef<ActiveUnit[]>([]);
-  const pvosRef = useRef<ActivePVO[]>([]);
-  const basesRef = useRef<BaseCity[]>(INITIAL_BASES.map((b) => ({ ...b })));
-  const explosionsRef = useRef<Explosion[]>([]);
-
-  useEffect(() => {
-    unitsRef.current = units;
-  }, [units]);
-  useEffect(() => {
-    pvosRef.current = pvos;
-  }, [pvos]);
-  useEffect(() => {
-    basesRef.current = bases;
-  }, [bases]);
-  useEffect(() => {
-    explosionsRef.current = explosions;
-  }, [explosions]);
-
-  const runLoop = useCallback(() => {
+  // ── Game loop ──
+  const loop = useCallback(() => {
+    if (phaseR.current !== "battle") return;
     const now = performance.now();
-    if (now - lastTickRef.current < 50) {
-      rafRef.current = requestAnimationFrame(runLoop);
-      return;
-    }
-    lastTickRef.current = now;
+    if (now - lastT.current < 48) { rafR.current = requestAnimationFrame(loop); return; }
+    lastT.current = now;
+    tickR.current++;
 
-    const curUnits = unitsRef.current;
-    const curPvos = pvosRef.current;
-    const curBases = basesRef.current;
-    const curTick = tickRef.current + 1;
-    tickRef.current = curTick;
+    const cu = unitsR.current;
+    const cp = pvosR.current;
+    const cb = citiesR.current;
+    const ce = boomsR.current;
 
-    const newExplosions: Explosion[] = [];
-    const newLogEntries: LogEntry[] = [];
+    const newBooms: Boom[] = [];
+    const newLog: {t:number;msg:string;kind:string}[] = [];
 
-    // Move units toward targets
-    const movedUnits: ActiveUnit[] = curUnits.map((u) => {
-      if (u.dead || u.intercepted) return u;
-      const d = dist(u.x, u.y, u.targetX, u.targetY);
-      if (d < 8) return u;
-      const vx = ((u.targetX - u.x) / d) * u.speed * 1.5;
-      const vy = ((u.targetY - u.y) / d) * u.speed * 1.5;
-      return { ...u, x: u.x + vx, y: u.y + vy };
+    // Move
+    const moved: ActiveUnit[] = cu.map(u => {
+      if (u.dead || u.hit) return u;
+      const dd = d2(u.x, u.y, u.tx, u.ty);
+      if (dd < 10) return u;
+      const spd = u.speed * 1.4;
+      return {...u, x: u.x + (u.tx-u.x)/dd*spd, y: u.y + (u.ty-u.y)/dd*spd};
     });
 
-    // PVO fire at units in range
-    const interceptedIds = new Set<string>();
-    const updatedPvos: ActivePVO[] = curPvos.map((pvo) => {
+    // PVO fire
+    const intercepted = new Set<string>();
+    const updPvos: ActivePVO[] = cp.map(pvo => {
       if (pvo.dead) return pvo;
-      let cd = pvo.cooldown;
-      if (cd > 0) return { ...pvo, cooldown: cd - 1 };
-      for (const u of movedUnits) {
-        if (u.dead || u.intercepted || interceptedIds.has(u.uid)) continue;
+      if (pvo.cd > 0) return {...pvo, cd: pvo.cd - 1};
+      for (const u of moved) {
+        if (u.dead || u.hit || intercepted.has(u.uid)) continue;
+        if (pvo.side === u.side) continue; // no friendly fire
         if (u.stealth && !pvo.detectsStealth) continue;
         if (u.ballistic && !pvo.antiballistic && pvo.range < 120) continue;
-        if (pvo.side === u.side) continue; // don't shoot own units
-        const d = dist(pvo.x, pvo.y, u.x, u.y);
-        if (d <= pvo.range) {
-          interceptedIds.add(u.uid);
-          newExplosions.push({ uid: uid(), x: u.x, y: u.y, t: 0 });
-          newLogEntries.push({
-            t: curTick,
-            msg: `[ПВО] ${pvo.defId} сбил ${u.weaponId}`,
-            kind: "intercept",
-          });
-          cd = Math.max(1, Math.round(60 / pvo.fireRate));
-          return { ...pvo, cooldown: cd };
+        if (d2(pvo.x, pvo.y, u.x, u.y) <= pvo.range) {
+          intercepted.add(u.uid);
+          newBooms.push({uid: nid(), x: u.x, y: u.y, age: 0});
+          const wname = [...RU_WEAPONS,...UA_WEAPONS].find(w=>w.id===u.wid)?.name ?? u.wid;
+          const pname = [...UA_PVO,...RU_PVO].find(p=>p.id===pvo.pid)?.name ?? pvo.pid;
+          newLog.push({t:tickR.current, msg:`${pname} сбил ${wname}`, kind:"intercept"});
+          return {...pvo, cd: Math.max(1, Math.round(55 / pvo.fireRate))};
         }
       }
       return pvo;
     });
 
-    // Apply intercepts to units
-    const postInterceptUnits: ActiveUnit[] = movedUnits.map((u) =>
-      interceptedIds.has(u.uid) ? { ...u, intercepted: true } : u
+    const postInt: ActiveUnit[] = moved.map(u =>
+      intercepted.has(u.uid) ? {...u, hit: true} : u
     );
 
-    // Check hits on bases
-    const hitByUnit: { uid: string; baseId: string; dmg: number }[] = [];
-    for (const u of postInterceptUnits) {
-      if (u.dead || u.intercepted) continue;
-      for (const b of curBases) {
-        if (b.hp <= 0) continue;
-        if (u.side !== "ru") continue; // only Russia targets UA bases
-        const d = dist(u.x, u.y, b.x, b.y);
-        if (d < 12) {
-          hitByUnit.push({ uid: u.uid, baseId: b.id, dmg: u.dmg });
-          newExplosions.push({ uid: uid(), x: u.x, y: u.y, t: 0 });
-          newLogEntries.push({
-            t: curTick,
-            msg: `[УДАР] ${b.label} -${u.dmg}HP (${u.weaponId})`,
-            kind: "hit",
-          });
+    // Hits on cities
+    const hitMap: Record<string,number> = {};
+    const hitUnits = new Set<string>();
+    for (const u of postInt) {
+      if (u.dead || u.hit) continue;
+      for (const c of cb) {
+        if (c.hp <= 0) continue;
+        if (d2(u.x, u.y, c.x, c.y) < 14) {
+          hitMap[c.id] = (hitMap[c.id] || 0) + u.dmg;
+          hitUnits.add(u.uid);
+          newBooms.push({uid: nid(), x: u.x, y: u.y, age: 0});
+          newLog.push({t:tickR.current, msg:`${c.label} поражён! -${u.dmg} (${u.wid})`, kind:"hit"});
         }
       }
     }
 
-    const hitUnitIds = new Set(hitByUnit.map((h) => h.uid));
-    const finalUnits: ActiveUnit[] = postInterceptUnits.map((u) =>
-      hitUnitIds.has(u.uid) ? { ...u, dead: true } : u
+    const finalUnits: ActiveUnit[] = postInt.map(u =>
+      hitUnits.has(u.uid) ? {...u, dead: true} : u
     );
 
-    // Update bases
-    const updatedBases: BaseCity[] = curBases.map((b) => {
-      const dmg = hitByUnit.filter((h) => h.baseId === b.id).reduce((a, h) => a + h.dmg, 0);
-      const newHp = Math.max(0, b.hp - dmg);
-      if (newHp <= 0 && b.hp > 0) {
-        newLogEntries.push({ t: curTick, msg: `[!] ${b.label} УНИЧТОЖЕНА`, kind: "destroy" });
-      }
-      return { ...b, hp: newHp };
+    const finalCities: City[] = cb.map(c => {
+      const dmg = hitMap[c.id] || 0;
+      const nhp = Math.max(0, c.hp - dmg);
+      if (nhp <= 0 && c.hp > 0)
+        newLog.push({t:tickR.current, msg:`${c.label} УНИЧТОЖЕН!`, kind:"destroy"});
+      return {...c, hp: nhp};
     });
 
-    // Update explosions
-    const updatedExplosions = [
-      ...explosionsRef.current.map((e) => ({ ...e, t: e.t + 1 })).filter((e) => e.t < 40),
-      ...newExplosions,
-    ];
+    // Age booms
+    const updBooms = [...ce.map(b=>({...b,age:b.age+1})).filter(b=>b.age<35), ...newBooms];
 
-    // Commit state
-    unitsRef.current = finalUnits;
-    pvosRef.current = updatedPvos;
-    basesRef.current = updatedBases;
-    explosionsRef.current = updatedExplosions;
+    // Commit
+    unitsR.current  = finalUnits;
+    pvosR.current   = updPvos;
+    citiesR.current = finalCities;
+    boomsR.current  = updBooms;
 
     setUnits([...finalUnits]);
-    setPvos([...updatedPvos]);
-    setBases([...updatedBases]);
-    setExplosions([...updatedExplosions]);
-    setTick(curTick);
-
-    if (newLogEntries.length > 0) {
-      setLog((prev) => [...newLogEntries, ...prev].slice(0, 100));
-    }
+    setPvos([...updPvos]);
+    setCities([...finalCities]);
+    setBooms([...updBooms]);
+    if (newLog.length) setLog(p => [...newLog, ...p].slice(0, 120));
 
     // End check
-    const allGone = finalUnits.every((u) => u.dead || u.intercepted);
-    const allDestroyed = updatedBases.every((b) => b.hp <= 0);
-    if (allGone || allDestroyed) {
-      setPhase("result");
-      return;
-    }
+    const allGone = finalUnits.every(u => u.dead || u.hit);
+    if (allGone) { setPhase("result"); phaseR.current = "result"; return; }
 
-    rafRef.current = requestAnimationFrame(runLoop);
+    rafR.current = requestAnimationFrame(loop);
   }, []);
 
   useEffect(() => {
     if (phase === "battle") {
-      lastTickRef.current = performance.now();
-      rafRef.current = requestAnimationFrame(runLoop);
+      lastT.current = performance.now();
+      rafR.current = requestAnimationFrame(loop);
     } else {
-      if (rafRef.current !== null) {
-        cancelAnimationFrame(rafRef.current);
-        rafRef.current = null;
-      }
+      if (rafR.current !== null) { cancelAnimationFrame(rafR.current); rafR.current = null; }
     }
-    return () => {
-      if (rafRef.current !== null) {
-        cancelAnimationFrame(rafRef.current);
-        rafRef.current = null;
-      }
-    };
-  }, [phase, runLoop]);
+    return () => { if (rafR.current !== null) { cancelAnimationFrame(rafR.current); rafR.current = null; } };
+  }, [phase, loop]);
 
-  // Suppress unused warning for gameLoop
-  void gameLoop;
+  function startBattle() {
+    if (orders.length === 0) { addMsg("Добавьте войска!", "info"); return; }
 
-  function pauseResume() {
-    setPhase((p) => (p === "battle" ? "paused" : "battle"));
-  }
-
-  function reset() {
-    if (rafRef.current !== null) {
-      cancelAnimationFrame(rafRef.current);
-      rafRef.current = null;
-    }
-    setPhase("setup");
-    setOrders([]);
-    setBases(INITIAL_BASES.map((b) => ({ ...b })));
-    basesRef.current = INITIAL_BASES.map((b) => ({ ...b }));
-    setUnits([]);
-    unitsRef.current = [];
-    setPvos([]);
-    pvosRef.current = [];
-    setExplosions([]);
-    explosionsRef.current = [];
-    setLog([]);
-    setTick(0);
-    tickRef.current = 0;
-    setPlacingPVO(false);
-  }
-
-  function handleStartBattle() {
-    // Initialize refs before starting
     const newUnits: ActiveUnit[] = [];
     const newPvos: ActivePVO[] = [];
-    const newBases = INITIAL_BASES.map((b) => ({ ...b }));
+    const newCities = UA_CITIES.map(c=>({...c}));
 
-    orders.forEach((order) => {
-      if (order.isPVO) {
-        const def = getPVODef(order.weaponId, order.side);
+    orders.forEach(o => {
+      if (o.isPVO) {
+        const def = [...UA_PVO,...RU_PVO].find(p=>p.id===o.wid);
         if (!def) return;
         newPvos.push({
-          uid: uid(),
-          defId: def.id,
-          x: order.pvoX ?? 400,
-          y: order.pvoY ?? 300,
-          hp: 30,
-          dead: false,
-          side: order.side,
-          isPVO: true,
-          color: def.color,
-          range: def.range,
-          fireRate: def.fireRate,
-          dmg: def.dmg,
-          cooldown: 0,
-          detectsStealth: def.detectsStealth ?? false,
-          antiballistic: def.antiballistic ?? false,
+          uid: nid(), pid: def.id, x: o.px??400, y: o.py??300,
+          range: def.range, fireRate: def.fireRate, dmg: def.dmg,
+          side: o.side, color: def.color, cd: 0, dead: false,
+          detectsStealth: def.detectsStealth??false,
+          antiballistic: def.antiballistic??false,
         });
       } else {
-        const wdef = getWeaponDef(order.weaponId);
+        const wdef = [...RU_WEAPONS,...UA_WEAPONS].find(w=>w.id===o.wid);
         if (!wdef) return;
-        const sp = getSpawnPoint(order.spawnDir);
-        for (let i = 0; i < order.count; i++) {
-          const target = newBases[Math.floor(Math.random() * newBases.length)];
+        const sp = ALL_SPAWNS.find(s=>s.id===o.spawnId);
+        if (!sp) return;
+        for (let i=0; i<o.count; i++) {
+          const tgt = newCities[Math.floor(Math.random()*newCities.length)];
           newUnits.push({
-            uid: uid(),
-            weaponId: wdef.id,
-            x: sp.x + (Math.random() - 0.5) * 40,
-            y: sp.y + (Math.random() - 0.5) * 40,
-            targetX: target.x,
-            targetY: target.y,
-            hp: wdef.hp,
-            maxHp: wdef.hp,
-            dead: false,
-            intercepted: false,
-            side: order.side,
-            isPVO: false,
-            color: wdef.color,
-            speed: wdef.speed * (0.9 + Math.random() * 0.2),
-            dmg: wdef.dmg,
-            stealth: wdef.stealth ?? false,
-            ballistic: wdef.ballistic ?? false,
-            hypersonic: wdef.hypersonic ?? false,
+            uid: nid(), wid: wdef.id,
+            x: sp.x + (Math.random()-0.5)*40,
+            y: sp.y + (Math.random()-0.5)*40,
+            tx: tgt.x, ty: tgt.y,
+            hp: wdef.hp, maxHp: wdef.hp,
+            speed: wdef.speed * (0.9 + Math.random()*0.2),
+            dmg: wdef.dmg, side: o.side, color: wdef.color,
+            dead: false, hit: false,
+            stealth: wdef.stealth??false,
+            ballistic: wdef.ballistic??false,
+            hypersonic: wdef.hypersonic??false,
           });
         }
       }
     });
 
-    unitsRef.current = newUnits;
-    pvosRef.current = newPvos;
-    basesRef.current = newBases;
-    explosionsRef.current = [];
-    tickRef.current = 0;
+    unitsR.current  = newUnits;
+    pvosR.current   = newPvos;
+    citiesR.current = newCities;
+    boomsR.current  = [];
+    tickR.current   = 0;
 
-    setUnits(newUnits);
-    setPvos(newPvos);
-    setBases(newBases);
-    setExplosions([]);
-    setLog([]);
-    setTick(0);
-    lastTickRef.current = performance.now();
+    setUnits(newUnits); setPvos(newPvos); setCities(newCities);
+    setBooms([]); setLog([]); lastT.current = performance.now();
     setPhase("battle");
+    addMsg(`Запуск: ${newUnits.length} ед. атаки, ${newPvos.length} ПВО`, "info");
   }
 
-  // Stats for result screen
-  const totalIntercepted = units.filter((u) => u.intercepted).length;
-  const totalHit = units.filter((u) => u.dead && !u.intercepted).length;
-  const basesDestroyed = bases.filter((b) => b.hp <= 0).length;
-  const totalDmgDealt = INITIAL_BASES.reduce((acc, b) => {
-    const cur = bases.find((bb) => bb.id === b.id);
-    return acc + (b.maxHp - (cur?.hp ?? 0));
-  }, 0);
+  function reset() {
+    if (rafR.current) { cancelAnimationFrame(rafR.current); rafR.current = null; }
+    setPhase("setup"); setOrders([]); setUnits([]); setPvos([]);
+    setBooms([]); setLog([]); tickR.current = 0;
+    const nc = UA_CITIES.map(c=>({...c}));
+    setCities(nc); citiesR.current = nc; unitsR.current = []; pvosR.current = [];
+    setPlacingPVO(false);
+  }
 
-  const ruSpawns = SPAWN_POINTS.filter((s) => s.side === "ru");
-  const uaSpawns = SPAWN_POINTS.filter((s) => s.side === "ua");
+  function togglePause() {
+    setPhase(p => {
+      const np = p === "battle" ? "paused" : "battle";
+      phaseR.current = np;
+      return np;
+    });
+  }
 
-  const activeWeaponList = RU_WEAPONS;
-  const activePVOList = activeSide === "ua" ? UA_PVO : RU_PVO;
+  // Derived
+  const wlist  = side === "ru" ? RU_WEAPONS : UA_WEAPONS;
+  const plist  = side === "ua" ? UA_PVO : RU_PVO;
+  const spawns = ALL_SPAWNS.filter(s => s.side === side);
+  const acol   = side === "ru" ? "#ef4444" : "#3b82f6";
 
-  const accentColor = activeSide === "ru" ? "#ef4444" : "#3b82f6";
+  const intercepted = units.filter(u=>u.hit).length;
+  const reached     = units.filter(u=>u.dead&&!u.hit).length;
+  const active      = units.filter(u=>!u.dead&&!u.hit).length;
 
   return (
-    <div
-      style={{
-        minHeight: "100vh",
-        background: "#070d07",
-        fontFamily: "IBM Plex Mono, monospace",
-        color: "#c8d4c8",
-        display: "flex",
-        flexDirection: "column",
-        overflow: "hidden",
-      }}
-    >
-      {/* ── TOP BAR ── */}
-      <div
-        style={{
-          background: "#090f09",
-          borderBottom: "1px solid #1a3a1a",
-          padding: "6px 12px",
-          display: "flex",
-          alignItems: "center",
-          gap: 12,
-          flexWrap: "wrap",
-        }}
-      >
-        {/* Title */}
-        <div
-          style={{
-            color: "#4ade80",
-            fontSize: 12,
-            fontWeight: "bold",
-            letterSpacing: 3,
-            whiteSpace: "nowrap",
-          }}
-        >
-          ОПЕРАЦИЯ РУБЕЖ 2.0
+    <div style={{width:"100vw",height:"100vh",background:"#060c06",
+      fontFamily:"IBM Plex Mono,monospace",color:"#c8d4c8",
+      display:"flex",flexDirection:"column",overflow:"hidden"}}>
+
+      {/* ══ TOP BAR ══ */}
+      <div style={{background:"#080e08",borderBottom:"1px solid #162416",
+        padding:"5px 14px",display:"flex",alignItems:"center",gap:10,flexShrink:0}}>
+        <span style={{color:"#4ade80",fontSize:12,fontWeight:"bold",letterSpacing:3,whiteSpace:"nowrap"}}>
+          ОПЕРАЦИЯ РУБЕЖ
+        </span>
+        <div style={{width:1,height:22,background:"#162416"}}/>
+
+        {/* Side toggle */}
+        {(["ru","ua"] as Side[]).map(s=>(
+          <button key={s} onClick={()=>{
+            setSide(s);
+            setSelW(s==="ru"?"shahed136":"himars");
+            setSelP(s==="ru"?"s400":"patriot");
+            setSelSp(s==="ru"?"belgorod":"poland");
+            setPlacingPVO(false);
+          }} style={{
+            background:side===s?(s==="ru"?"#ef444422":"#3b82f622"):"transparent",
+            border:`1px solid ${side===s?(s==="ru"?"#ef4444":"#3b82f6"):"#162416"}`,
+            color:side===s?(s==="ru"?"#fca5a5":"#93c5fd"):"#374151",
+            fontSize:10,padding:"3px 12px",borderRadius:3,cursor:"pointer",
+            fontWeight:side===s?"bold":"normal",
+          }}>
+            {s==="ru"?"🇷🇺 РОССИЯ":"🇺🇦 УКРАИНА/НАТО"}
+          </button>
+        ))}
+
+        <div style={{width:1,height:22,background:"#162416"}}/>
+
+        {/* Phase indicator */}
+        <div style={{display:"flex",alignItems:"center",gap:6,fontSize:9,color:"#6b7280"}}>
+          <div style={{width:8,height:8,borderRadius:"50%",
+            background:phase==="battle"?"#4ade80":phase==="paused"?"#facc15":phase==="result"?"#ef4444":"#374151",
+            boxShadow:phase==="battle"?"0 0 6px #4ade80":"none"}}/>
+          <span>{phase==="setup"?"ПОДГОТОВКА":phase==="battle"?`ТИК ${tickR.current}`:phase==="paused"?"⏸ ПАУЗА":"ЗАВЕРШЕНО"}</span>
         </div>
 
-        <div style={{ width: 1, height: 24, background: "#1a3a1a" }} />
+        {phase==="battle"&&<>
+          <span style={{fontSize:9,color:"#f97316"}}>✈ {active}</span>
+          <span style={{fontSize:9,color:"#4ade80"}}>✕ {intercepted}</span>
+          <span style={{fontSize:9,color:"#ef4444"}}>💥 {reached}</span>
+        </>}
 
-        {/* Map selector */}
-        <div style={{ display: "flex", gap: 4 }}>
-          <button
-            style={{
-              background: mapView === "ukraine" ? "#1a3a1a" : "transparent",
-              border: "1px solid #1a3a1a",
-              color: mapView === "ukraine" ? "#4ade80" : "#4a6a4a",
-              fontSize: 9,
-              padding: "3px 8px",
-              borderRadius: 3,
-              cursor: "pointer",
-              fontFamily: "IBM Plex Mono",
-            }}
-          >
-            УКРАИНА
-          </button>
-          <button
-            style={{
-              background: mapView === "russia" ? "#1a3a1a" : "transparent",
-              border: "1px solid #1a3a1a",
-              color: mapView === "russia" ? "#4ade80" : "#4a6a4a",
-              fontSize: 9,
-              padding: "3px 8px",
-              borderRadius: 3,
-              cursor: "pointer",
-              fontFamily: "IBM Plex Mono",
-            }}
-          >
-            РОССИЯ
-          </button>
+        <div style={{flex:1}}/>
+
+        {/* Zoom controls */}
+        <div style={{display:"flex",gap:4,alignItems:"center"}}>
+          <button onClick={()=>setZoom(z=>Math.min(4,z*1.2))}
+            style={{background:"#0d1a0d",border:"1px solid #162416",color:"#4ade80",
+              fontSize:14,width:26,height:26,borderRadius:3,cursor:"pointer",lineHeight:1}}>+</button>
+          <span style={{fontSize:9,color:"#374151",minWidth:32,textAlign:"center"}}>{Math.round(zoom*100)}%</span>
+          <button onClick={()=>setZoom(z=>Math.max(0.4,z*0.8))}
+            style={{background:"#0d1a0d",border:"1px solid #162416",color:"#4ade80",
+              fontSize:14,width:26,height:26,borderRadius:3,cursor:"pointer",lineHeight:1}}>−</button>
+          <button onClick={()=>{setZoom(1);setPanX(0);setPanY(0);}}
+            style={{background:"#0d1a0d",border:"1px solid #162416",color:"#6b7280",
+              fontSize:9,padding:"3px 6px",borderRadius:3,cursor:"pointer"}}>⌂</button>
         </div>
 
-        <div style={{ width: 1, height: 24, background: "#1a3a1a" }} />
+        <div style={{width:1,height:22,background:"#162416"}}/>
 
-        {/* Side selector */}
-        <div style={{ display: "flex", gap: 4 }}>
-          <button
-            onClick={() => {
-              setActiveSide("ru");
-              setSelectedSpawn("belgorod");
-            }}
-            style={{
-              background: activeSide === "ru" ? "#ef444422" : "transparent",
-              border: `1px solid ${activeSide === "ru" ? "#ef4444" : "#1a3a1a"}`,
-              color: activeSide === "ru" ? "#ef4444" : "#4a6a4a",
-              fontSize: 9,
-              padding: "3px 10px",
-              borderRadius: 3,
-              cursor: "pointer",
-              fontFamily: "IBM Plex Mono",
-              fontWeight: activeSide === "ru" ? "bold" : "normal",
-            }}
-          >
-            РОССИЯ
-          </button>
-          <button
-            onClick={() => {
-              setActiveSide("ua");
-              setSelectedSpawn("poland");
-            }}
-            style={{
-              background: activeSide === "ua" ? "#3b82f622" : "transparent",
-              border: `1px solid ${activeSide === "ua" ? "#3b82f6" : "#1a3a1a"}`,
-              color: activeSide === "ua" ? "#3b82f6" : "#4a6a4a",
-              fontSize: 9,
-              padding: "3px 10px",
-              borderRadius: 3,
-              cursor: "pointer",
-              fontFamily: "IBM Plex Mono",
-              fontWeight: activeSide === "ua" ? "bold" : "normal",
-            }}
-          >
-            УКРАИНА/НАТО
-          </button>
-        </div>
-
-        <div style={{ flex: 1 }} />
-
-        {/* Status */}
-        <div
-          style={{
-            display: "flex",
-            alignItems: "center",
-            gap: 8,
-            fontSize: 9,
-            color: "#4a6a4a",
-          }}
-        >
-          <div
-            style={{
-              width: 8,
-              height: 8,
-              borderRadius: "50%",
-              background:
-                phase === "battle"
-                  ? "#4ade80"
-                  : phase === "result"
-                  ? "#ef4444"
-                  : phase === "paused"
-                  ? "#facc15"
-                  : "#4a6a4a",
-              boxShadow:
-                phase === "battle" ? "0 0 6px #4ade80" : "none",
-            }}
-          />
-          <span>
-            {phase === "setup"
-              ? "ПОДГОТОВКА"
-              : phase === "battle"
-              ? `ТИК: ${tick}`
-              : phase === "paused"
-              ? "ПАУЗА"
-              : "ЗАВЕРШЕНО"}
-          </span>
-        </div>
-
-        <div style={{ width: 1, height: 24, background: "#1a3a1a" }} />
-
-        {/* Control buttons */}
-        {phase === "setup" && (
-          <button
-            onClick={handleStartBattle}
-            disabled={orders.length === 0}
-            style={{
-              background: orders.length > 0 ? "#ef444422" : "#0d160d",
-              border: `1px solid ${orders.length > 0 ? "#ef4444" : "#1a3a1a"}`,
-              color: orders.length > 0 ? "#ef4444" : "#2a4a2a",
-              fontSize: 10,
-              padding: "4px 14px",
-              borderRadius: 3,
-              cursor: orders.length > 0 ? "pointer" : "not-allowed",
-              fontFamily: "IBM Plex Mono",
-              fontWeight: "bold",
-              letterSpacing: 1,
-            }}
-          >
-            ЗАПУСК
-          </button>
+        {/* Action buttons */}
+        {phase==="setup"&&(
+          <button onClick={startBattle} disabled={orders.length===0} style={{
+            background:orders.length>0?"#ef444420":"#0d130d",
+            border:`1px solid ${orders.length>0?"#ef4444":"#162416"}`,
+            color:orders.length>0?"#ef4444":"#2a3a2a",
+            fontSize:10,padding:"4px 16px",borderRadius:3,cursor:"pointer",
+            fontWeight:"bold",letterSpacing:1,
+          }}>▶ ЗАПУСК</button>
         )}
-        {(phase === "battle" || phase === "paused") && (
-          <button
-            onClick={pauseResume}
-            style={{
-              background: "#facc1522",
-              border: "1px solid #facc15",
-              color: "#facc15",
-              fontSize: 10,
-              padding: "4px 12px",
-              borderRadius: 3,
-              cursor: "pointer",
-              fontFamily: "IBM Plex Mono",
-            }}
-          >
-            {phase === "battle" ? "ПАУЗА" : "ПРОДОЛЖ"}
-          </button>
+        {(phase==="battle"||phase==="paused")&&(
+          <button onClick={togglePause} style={{
+            background:"#facc1520",border:"1px solid #facc15",
+            color:"#facc15",fontSize:10,padding:"4px 12px",borderRadius:3,cursor:"pointer",
+          }}>{phase==="battle"?"⏸ ПАУЗА":"▶ ПРОДОЛЖИТЬ"}</button>
         )}
-        <button
-          onClick={reset}
-          style={{
-            background: "transparent",
-            border: "1px solid #1a3a1a",
-            color: "#4a6a4a",
-            fontSize: 10,
-            padding: "4px 10px",
-            borderRadius: 3,
-            cursor: "pointer",
-            fontFamily: "IBM Plex Mono",
-          }}
-        >
-          СБРОС
-        </button>
+        <button onClick={reset} style={{
+          background:"transparent",border:"1px solid #162416",
+          color:"#4b5563",fontSize:10,padding:"4px 10px",borderRadius:3,cursor:"pointer",
+        }}>↺ СБРОС</button>
       </div>
 
-      {/* ── MAIN LAYOUT ── */}
-      <div style={{ display: "flex", flex: 1, overflow: "hidden", height: "calc(100vh - 44px)" }}>
+      {/* ══ MAIN ══ */}
+      <div style={{display:"flex",flex:1,overflow:"hidden"}}>
+
         {/* ── LEFT PANEL ── */}
-        <div
-          style={{
-            width: 300,
-            minWidth: 300,
-            background: "#090f09",
-            borderRight: "1px solid #1a3a1a",
-            display: "flex",
-            flexDirection: "column",
-            overflow: "hidden",
-          }}
-        >
+        <div style={{width:295,minWidth:295,background:"#080e08",
+          borderRight:"1px solid #162416",display:"flex",flexDirection:"column",overflow:"hidden"}}>
+
           {/* Tabs */}
-          <div
-            style={{
-              display: "flex",
-              borderBottom: "1px solid #1a3a1a",
-            }}
-          >
-            {(["attack", "pvo", "log"] as PanelTab[]).map((tab) => {
-              const labels: Record<PanelTab, string> = {
-                attack: "АТАКА",
-                pvo: "ПВО",
-                log: "ЖУРНАЛ",
-              };
-              return (
-                <button
-                  key={tab}
-                  onClick={() => setPanelTab(tab)}
-                  style={{
-                    flex: 1,
-                    background: panelTab === tab ? "#0d1a0d" : "transparent",
-                    border: "none",
-                    borderBottom: `2px solid ${panelTab === tab ? accentColor : "transparent"}`,
-                    color: panelTab === tab ? accentColor : "#4a6a4a",
-                    fontSize: 9,
-                    padding: "6px 0",
-                    cursor: "pointer",
-                    fontFamily: "IBM Plex Mono",
-                    letterSpacing: 1,
-                  }}
-                >
-                  {labels[tab]}
-                </button>
-              );
-            })}
+          <div style={{display:"flex",borderBottom:"1px solid #162416",flexShrink:0}}>
+            {(["attack","pvo","log"] as Tab[]).map(t=>(
+              <button key={t} onClick={()=>setTab(t)} style={{
+                flex:1,background:tab===t?"#0d1a0d":"transparent",
+                border:"none",borderBottom:tab===t?`2px solid ${acol}`:"2px solid transparent",
+                color:tab===t?acol:"#374151",fontSize:9,padding:"8px 0",cursor:"pointer",
+                fontFamily:"IBM Plex Mono",letterSpacing:"0.1em",
+              }}>
+                {t==="attack"?"⚔ АТАКА":t==="pvo"?"🛡 ПВО":"📋 ЖУРНАЛ"}
+              </button>
+            ))}
           </div>
 
-          <div style={{ flex: 1, overflowY: "auto", padding: "8px" }}>
-            {/* ATTACK TAB */}
-            {panelTab === "attack" && (
-              <div>
-                <div
-                  style={{
-                    fontSize: 8,
-                    color: "#4a6a4a",
-                    letterSpacing: 2,
-                    marginBottom: 6,
-                    textTransform: "uppercase",
-                  }}
-                >
-                  ВЫБЕРИТЕ ОРУЖИЕ
-                </div>
-                {activeWeaponList.map((w) => (
-                  <WeaponCard
-                    key={w.id}
-                    w={w}
-                    selected={selectedWeapon === w.id}
-                    onSelect={() => setSelectedWeapon(w.id)}
-                  />
-                ))}
+          <div style={{flex:1,overflowY:"auto",overflowX:"hidden"}}>
 
-                <div
-                  style={{
-                    fontSize: 8,
-                    color: "#4a6a4a",
-                    letterSpacing: 2,
-                    margin: "10px 0 6px",
-                    textTransform: "uppercase",
-                  }}
-                >
-                  ТОЧКА ВЫЛЕТА
+            {/* ── ATTACK TAB ── */}
+            {tab==="attack"&&(
+              <div style={{padding:"10px 8px"}}>
+                <div style={{fontSize:9,color:"#374151",letterSpacing:"0.15em",marginBottom:8}}>
+                  ВООРУЖЕНИЕ — {side==="ru"?"РОССИЯ":"УКРАИНА/НАТО"}
                 </div>
-                <div style={{ display: "flex", flexWrap: "wrap" }}>
-                  {(activeSide === "ru" ? ruSpawns : uaSpawns).map((sp) => (
-                    <SpawnBtn
-                      key={sp.id}
-                      sp={sp}
-                      selected={selectedSpawn === sp.id}
-                      onSelect={() => setSelectedSpawn(sp.id)}
-                      side={activeSide}
-                    />
+
+                {/* Weapon list */}
+                <div style={{marginBottom:8}}>
+                  {wlist.map(w=>(
+                    <div key={w.id} onClick={()=>setSelW(w.id)} style={{
+                      background:selW===w.id?w.color+"1a":"#0d130d",
+                      border:`1px solid ${selW===w.id?w.color:"#162416"}`,
+                      borderRadius:4,padding:"6px 8px",cursor:"pointer",
+                      marginBottom:3,display:"flex",alignItems:"center",gap:8,
+                      transition:"all 0.12s",
+                    }}>
+                      <div style={{width:28,height:28,display:"flex",alignItems:"center",justifyContent:"center",
+                        background:w.color+"14",borderRadius:3,flexShrink:0}}>
+                        <WIcon id={w.id} color={w.color} size={20}/>
+                      </div>
+                      <div style={{flex:1,minWidth:0}}>
+                        <div style={{color:selW===w.id?w.color:"#b0bab0",fontSize:9,
+                          fontWeight:selW===w.id?"bold":"normal",
+                          whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>
+                          {w.name}
+                        </div>
+                        <div style={{marginTop:2,display:"flex",flexWrap:"wrap",gap:2}}>
+                          {w.stealth&&<Bdg label="СТЕЛС" col="#7c3aed"/>}
+                          {w.ballistic&&<Bdg label="БАЛЛИСТ" col="#dc2626"/>}
+                          {w.hypersonic&&<Bdg label="ГИПЕР" col="#6d28d9"/>}
+                          {w.cruise&&<Bdg label="КРЫЛАТ" col="#0891b2"/>}
+                        </div>
+                        <div style={{color:"#374151",fontSize:8,marginTop:2}}>
+                          HP:{w.hp} СКР:{w.speed} УРН:{w.dmg}
+                        </div>
+                      </div>
+                    </div>
                   ))}
                 </div>
 
-                <div
-                  style={{
-                    fontSize: 8,
-                    color: "#4a6a4a",
-                    letterSpacing: 2,
-                    margin: "10px 0 6px",
-                  }}
-                >
+                {/* Spawn selector */}
+                <div style={{fontSize:9,color:"#374151",letterSpacing:"0.12em",marginBottom:6}}>
+                  НАПРАВЛЕНИЕ АТАКИ
+                </div>
+                <div style={{display:"flex",flexWrap:"wrap",gap:4,marginBottom:8}}>
+                  {spawns.map(sp=>(
+                    <button key={sp.id} onClick={()=>setSelSp(sp.id)} style={{
+                      background:selSp===sp.id?acol+"22":"#0d130d",
+                      border:`1px solid ${selSp===sp.id?acol:"#162416"}`,
+                      color:selSp===sp.id?acol:"#374151",
+                      fontSize:8,padding:"4px 8px",borderRadius:3,cursor:"pointer",
+                      transition:"all 0.1s",
+                    }}>{sp.label}</button>
+                  ))}
+                </div>
+
+                {/* Count + Add */}
+                <div style={{fontSize:9,color:"#374151",letterSpacing:"0.12em",marginBottom:5}}>
                   КОЛИЧЕСТВО
                 </div>
-                <div style={{ display: "flex", gap: 4, marginBottom: 8 }}>
-                  {[1, 5, 10, 25].map((n) => (
-                    <button
-                      key={n}
-                      onClick={() => setSpawnCount(n)}
-                      style={{
-                        background: spawnCount === n ? accentColor + "22" : "#0d160d",
-                        border: `1px solid ${spawnCount === n ? accentColor : "#1a3a1a"}`,
-                        color: spawnCount === n ? accentColor : "#4a6a4a",
-                        fontSize: 9,
-                        padding: "3px 8px",
-                        borderRadius: 3,
-                        cursor: "pointer",
-                        fontFamily: "IBM Plex Mono",
-                      }}
-                    >
-                      +{n}
-                    </button>
+                <div style={{display:"flex",gap:3,marginBottom:8}}>
+                  {[1,3,5,10,20,50].map(n=>(
+                    <button key={n} onClick={()=>setCnt(n)} style={{
+                      flex:1,background:cnt===n?"#4ade8022":"#0d130d",
+                      border:`1px solid ${cnt===n?"#4ade80":"#162416"}`,
+                      color:cnt===n?"#4ade80":"#374151",
+                      fontSize:9,padding:"4px 0",borderRadius:3,cursor:"pointer",
+                    }}>{n}</button>
                   ))}
-                  <input
-                    type="number"
-                    min={1}
-                    max={100}
-                    value={spawnCount}
-                    onChange={(e) => setSpawnCount(Math.max(1, parseInt(e.target.value) || 1))}
-                    style={{
-                      width: 44,
-                      background: "#0d160d",
-                      border: "1px solid #1a3a1a",
-                      color: "#c8d4c8",
-                      fontSize: 9,
-                      padding: "3px 4px",
-                      borderRadius: 3,
-                      fontFamily: "IBM Plex Mono",
-                    }}
-                  />
                 </div>
-
-                <button
-                  onClick={addAttackOrder}
-                  disabled={phase !== "setup"}
-                  style={{
-                    width: "100%",
-                    background: phase === "setup" ? accentColor + "22" : "#0d160d",
-                    border: `1px solid ${phase === "setup" ? accentColor : "#1a3a1a"}`,
-                    color: phase === "setup" ? accentColor : "#2a4a2a",
-                    fontSize: 9,
-                    padding: "5px",
-                    borderRadius: 3,
-                    cursor: phase === "setup" ? "pointer" : "not-allowed",
-                    fontFamily: "IBM Plex Mono",
-                    letterSpacing: 1,
-                    marginBottom: 8,
-                  }}
-                >
-                  + ДОБАВИТЬ В ВОЛНУ
-                </button>
+                <button onClick={addOrder} style={{
+                  width:"100%",background:acol+"18",border:`1px solid ${acol}`,
+                  color:acol,fontSize:10,padding:"7px 0",borderRadius:3,cursor:"pointer",
+                  fontWeight:"bold",letterSpacing:1,marginBottom:10,
+                }}>+ ДОБАВИТЬ В ОЧЕРЕДЬ</button>
 
                 {/* Orders list */}
-                {orders.filter((o) => !o.isPVO && o.side === activeSide).length > 0 && (
+                {orders.filter(o=>!o.isPVO).length>0&&(
                   <div>
-                    <div style={{ fontSize: 8, color: "#4a6a4a", letterSpacing: 2, marginBottom: 4 }}>
-                      ОЧЕРЕДЬ АТАКИ
-                    </div>
-                    <div
-                      style={{
-                        border: "1px solid #1a3a1a",
-                        borderRadius: 3,
-                        overflow: "hidden",
-                      }}
-                    >
-                      {orders
-                        .filter((o) => !o.isPVO && o.side === activeSide)
-                        .map((o) => (
-                          <OrderRow
-                            key={o.id}
-                            o={o}
-                            onRemove={() => setOrders((prev) => prev.filter((x) => x.id !== o.id))}
-                          />
-                        ))}
-                    </div>
+                    <div style={{fontSize:9,color:"#374151",letterSpacing:"0.12em",marginBottom:5}}>ОЧЕРЕДЬ АТАКИ</div>
+                    {orders.filter(o=>!o.isPVO).map(o=>{
+                      const wdef = [...RU_WEAPONS,...UA_WEAPONS].find(w=>w.id===o.wid);
+                      if (!wdef) return null;
+                      const ocol = o.side==="ru"?"#f97316":"#3b82f6";
+                      const sp = ALL_SPAWNS.find(s=>s.id===o.spawnId);
+                      return (
+                        <div key={o.id} style={{display:"flex",alignItems:"center",gap:6,
+                          padding:"3px 4px",borderBottom:"1px solid #0f1a0f",fontSize:8}}>
+                          <WIcon id={o.wid} color={ocol} size={14}/>
+                          <span style={{flex:1,overflow:"hidden",textOverflow:"ellipsis",
+                            whiteSpace:"nowrap",color:"#8aaa8a"}}>{wdef.name}</span>
+                          <span style={{color:ocol}}>×{o.count}</span>
+                          <span style={{color:"#374151"}}>{sp?.label}</span>
+                          <button onClick={()=>setOrders(p=>p.filter(x=>x.id!==o.id))}
+                            style={{background:"none",border:"none",color:"#ef4444",
+                              cursor:"pointer",fontSize:11,lineHeight:1,padding:"0 2px"}}>×</button>
+                        </div>
+                      );
+                    })}
                   </div>
                 )}
               </div>
             )}
 
-            {/* PVO TAB */}
-            {panelTab === "pvo" && (
-              <div>
-                <div
-                  style={{
-                    fontSize: 8,
-                    color: "#4a6a4a",
-                    letterSpacing: 2,
-                    marginBottom: 6,
-                  }}
-                >
-                  СИСТЕМЫ ПВО ({activeSide === "ua" ? "НАТО/УКРАИНА" : "РОССИЯ"})
+            {/* ── PVO TAB ── */}
+            {tab==="pvo"&&(
+              <div style={{padding:"10px 8px"}}>
+                <div style={{fontSize:9,color:"#374151",letterSpacing:"0.15em",marginBottom:8}}>
+                  ПВО — {side==="ru"?"РОССИЯ":"УКРАИНА/НАТО"}
                 </div>
-                {activePVOList.map((p) => (
-                  <PVOCard
-                    key={p.id}
-                    p={p}
-                    selected={selectedPVO === p.id}
-                    onSelect={() => setSelectedPVO(p.id)}
-                    side={activeSide}
-                  />
+
+                {plist.map(p=>(
+                  <div key={p.id} onClick={()=>setSelP(p.id)} style={{
+                    background:selP===p.id?p.color+"1a":"#0d130d",
+                    border:`1px solid ${selP===p.id?p.color:"#162416"}`,
+                    borderRadius:4,padding:"6px 8px",cursor:"pointer",
+                    marginBottom:3,display:"flex",alignItems:"center",gap:8,transition:"all 0.12s",
+                  }}>
+                    <div style={{width:28,height:28,display:"flex",alignItems:"center",
+                      justifyContent:"center",background:p.color+"14",borderRadius:3,flexShrink:0}}>
+                      <PIcon id={p.id} color={p.color} size={20}/>
+                    </div>
+                    <div style={{flex:1,minWidth:0}}>
+                      <div style={{color:selP===p.id?p.color:"#b0bab0",fontSize:9,
+                        fontWeight:selP===p.id?"bold":"normal",
+                        whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>
+                        {p.name}
+                      </div>
+                      <div style={{marginTop:2,display:"flex",gap:2}}>
+                        {p.detectsStealth&&<Bdg label="АНТ-СТЛ" col="#7c3aed"/>}
+                        {p.antiballistic&&<Bdg label="ЗПРР" col="#1d4ed8"/>}
+                      </div>
+                      <div style={{color:"#374151",fontSize:8,marginTop:2}}>
+                        Р:{p.range} СК:{p.fireRate} УРН:{p.dmg}
+                      </div>
+                    </div>
+                  </div>
                 ))}
 
-                <div
-                  style={{
-                    fontSize: 8,
-                    color: "#4a6a4a",
-                    letterSpacing: 2,
-                    margin: "10px 0 6px",
-                  }}
-                >
-                  КОЛИЧЕСТВО
+                <div style={{fontSize:9,color:"#374151",letterSpacing:"0.12em",marginBottom:5,marginTop:8}}>
+                  КОЛИЧЕСТВО ПВО
                 </div>
-                <div style={{ display: "flex", gap: 4, marginBottom: 8 }}>
-                  {[1, 3, 5, 10].map((n) => (
-                    <button
-                      key={n}
-                      onClick={() => setSpawnCount(n)}
-                      style={{
-                        background: spawnCount === n ? accentColor + "22" : "#0d160d",
-                        border: `1px solid ${spawnCount === n ? accentColor : "#1a3a1a"}`,
-                        color: spawnCount === n ? accentColor : "#4a6a4a",
-                        fontSize: 9,
-                        padding: "3px 8px",
-                        borderRadius: 3,
-                        cursor: "pointer",
-                        fontFamily: "IBM Plex Mono",
-                      }}
-                    >
-                      ×{n}
-                    </button>
+                <div style={{display:"flex",gap:3,marginBottom:8}}>
+                  {[1,2,3,5].map(n=>(
+                    <button key={n} onClick={()=>setCnt(n)} style={{
+                      flex:1,background:cnt===n?"#4ade8022":"#0d130d",
+                      border:`1px solid ${cnt===n?"#4ade80":"#162416"}`,
+                      color:cnt===n?"#4ade80":"#374151",
+                      fontSize:9,padding:"4px 0",borderRadius:3,cursor:"pointer",
+                    }}>{n}</button>
                   ))}
                 </div>
 
-                <button
-                  onClick={() => setPlacingPVO((v) => !v)}
-                  disabled={phase !== "setup"}
-                  style={{
-                    width: "100%",
-                    background:
-                      placingPVO
-                        ? "#facc1522"
-                        : phase === "setup"
-                        ? accentColor + "22"
-                        : "#0d160d",
-                    border: `1px solid ${placingPVO ? "#facc15" : phase === "setup" ? accentColor : "#1a3a1a"}`,
-                    color: placingPVO ? "#facc15" : phase === "setup" ? accentColor : "#2a4a2a",
-                    fontSize: 9,
-                    padding: "5px",
-                    borderRadius: 3,
-                    cursor: phase === "setup" ? "pointer" : "not-allowed",
-                    fontFamily: "IBM Plex Mono",
-                    letterSpacing: 1,
-                    marginBottom: 8,
-                  }}
-                >
-                  {placingPVO ? "КЛИКНИТЕ НА КАРТЕ..." : "РАЗМЕСТИТЬ НА КАРТЕ"}
-                </button>
+                {phase==="setup"&&(
+                  <button onClick={()=>setPlacingPVO(p=>!p)} style={{
+                    width:"100%",
+                    background:placingPVO?"#facc1520":"#4ade8010",
+                    border:`1px solid ${placingPVO?"#facc15":"#4ade80"}`,
+                    color:placingPVO?"#facc15":"#4ade80",
+                    fontSize:10,padding:"7px 0",borderRadius:3,cursor:"pointer",
+                    fontWeight:"bold",letterSpacing:1,marginBottom:10,
+                  }}>
+                    {placingPVO?"✕ ОТМЕНА":"+ РАЗМЕСТИТЬ НА КАРТЕ"}
+                  </button>
+                )}
 
-                {/* PVO Orders list */}
-                {orders.filter((o) => o.isPVO && o.side === activeSide).length > 0 && (
+                {/* Placed PVOs */}
+                {orders.filter(o=>o.isPVO).length>0&&(
                   <div>
-                    <div style={{ fontSize: 8, color: "#4a6a4a", letterSpacing: 2, marginBottom: 4 }}>
-                      РАЗМЕЩЁННЫЕ ПВО
+                    <div style={{fontSize:9,color:"#374151",letterSpacing:"0.12em",marginBottom:5}}>
+                      РАЗВЁРНУТО ({orders.filter(o=>o.isPVO).length})
                     </div>
-                    <div
-                      style={{
-                        border: "1px solid #1a3a1a",
-                        borderRadius: 3,
-                        overflow: "hidden",
-                      }}
-                    >
-                      {orders
-                        .filter((o) => o.isPVO && o.side === activeSide)
-                        .map((o) => (
-                          <OrderRow
-                            key={o.id}
-                            o={o}
-                            onRemove={() => setOrders((prev) => prev.filter((x) => x.id !== o.id))}
-                          />
-                        ))}
-                    </div>
+                    {orders.filter(o=>o.isPVO).map(o=>{
+                      const pdef = [...UA_PVO,...RU_PVO].find(p=>p.id===o.wid);
+                      if (!pdef) return null;
+                      const ocol = o.side==="ru"?"#ef4444":"#3b82f6";
+                      return (
+                        <div key={o.id} style={{display:"flex",alignItems:"center",gap:6,
+                          padding:"3px 4px",borderBottom:"1px solid #0f1a0f",fontSize:8}}>
+                          <PIcon id={o.wid} color={ocol} size={14}/>
+                          <span style={{flex:1,color:"#8aaa8a",overflow:"hidden",
+                            textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{pdef.name}</span>
+                          <button onClick={()=>setOrders(p=>p.filter(x=>x.id!==o.id))}
+                            style={{background:"none",border:"none",color:"#ef4444",
+                              cursor:"pointer",fontSize:11,lineHeight:1}}>×</button>
+                        </div>
+                      );
+                    })}
                   </div>
                 )}
-              </div>
-            )}
 
-            {/* LOG TAB */}
-            {panelTab === "log" && (
-              <div>
-                <div style={{ fontSize: 8, color: "#4a6a4a", letterSpacing: 2, marginBottom: 6 }}>
-                  БОЕВОЙ ЖУРНАЛ
+                {/* City status */}
+                <div style={{marginTop:12}}>
+                  <div style={{fontSize:9,color:"#374151",letterSpacing:"0.12em",marginBottom:6}}>ГОРОДА</div>
+                  {cities.map(c=>{
+                    const pct=c.hp/c.maxHp;
+                    const col=pct>0.6?"#4ade80":pct>0.3?"#facc15":"#ef4444";
+                    return (
+                      <div key={c.id} style={{marginBottom:6}}>
+                        <div style={{display:"flex",justifyContent:"space-between",marginBottom:2}}>
+                          <span style={{fontSize:9,color:"#b0bab0"}}>{c.label}</span>
+                          <span style={{fontSize:9,color:col,fontWeight:"bold"}}>{c.hp}/{c.maxHp}</span>
+                        </div>
+                        <div style={{height:4,background:"#0f1a0f",borderRadius:2}}>
+                          <div style={{height:"100%",width:`${pct*100}%`,
+                            background:col,borderRadius:2,transition:"width .3s"}}/>
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
-                {log.length === 0 && (
-                  <div style={{ fontSize: 9, color: "#2a4a2a", fontFamily: "IBM Plex Mono" }}>
-                    Журнал пуст
-                  </div>
-                )}
-                {log.map((entry, i) => (
-                  <LogLine key={i} entry={entry} />
-                ))}
               </div>
             )}
-          </div>
 
-          {/* Bottom status bar */}
-          <div
-            style={{
-              borderTop: "1px solid #1a3a1a",
-              padding: "6px 8px",
-              fontSize: 8,
-              color: "#4a6a4a",
-              display: "flex",
-              justifyContent: "space-between",
-            }}
-          >
-            <span>
-              АТАК: {orders.filter((o) => !o.isPVO).reduce((a, o) => a + o.count, 0)}
-            </span>
-            <span>
-              ПВО: {orders.filter((o) => o.isPVO).length}
-            </span>
-            <span>
-              ЦЕЛЕЙ: {orders.filter((o) => !o.isPVO).length}
-            </span>
+            {/* ── LOG TAB ── */}
+            {tab==="log"&&(
+              <div style={{padding:"10px 8px"}}>
+                <div style={{fontSize:9,color:"#374151",letterSpacing:"0.15em",marginBottom:8}}>ЖУРНАЛ БОЕВЫХ ДЕЙСТВИЙ</div>
+                {log.length===0&&<div style={{color:"#374151",fontSize:9}}>Нет событий</div>}
+                {log.map((e,i)=>{
+                  const col=e.kind==="intercept"?"#4ade80":e.kind==="hit"?"#f97316":e.kind==="destroy"?"#ef4444":"#6b7a6b";
+                  return <div key={i} style={{fontSize:8,color:col,padding:"2px 2px",borderBottom:"1px solid #0f1a0f"}}>
+                    [{e.t}] {e.msg}
+                  </div>;
+                })}
+              </div>
+            )}
           </div>
         </div>
 
         {/* ── MAP ── */}
         <div
-          style={{
-            flex: 1,
-            position: "relative",
-            overflow: "hidden",
-            background: "#070d07",
-          }}
+          ref={mapContainerRef}
+          style={{flex:1,position:"relative",overflow:"hidden",userSelect:"none"}}
+          onWheel={handleWheel}
+          onMouseDown={handleMouseDown}
+          onMouseMove={handleMouseMove}
+          onMouseUp={handleMouseUp}
+          onMouseLeave={handleMouseUp}
         >
-          <UkraineMap
-            bases={bases}
-            units={units}
-            pvos={pvos}
-            explosions={explosions}
+          <UkraineMapSVG
+            cities={cities} units={units} pvos={pvos} booms={booms}
             onMapClick={handleMapClick}
-            phase={phase}
-            placingPVO={placingPVO}
+            placingPVO={placingPVO && phase === "setup"}
+            zoom={zoom} panX={panX} panY={panY}
           />
 
           {/* Result overlay */}
-          {phase === "result" && (
-            <div
-              style={{
-                position: "absolute",
-                inset: 0,
-                background: "#070d07dd",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                flexDirection: "column",
-                gap: 16,
-              }}
-            >
-              <div
-                style={{
-                  fontSize: 22,
-                  fontWeight: "bold",
-                  letterSpacing: 4,
-                  color: basesDestroyed > 2 ? "#ef4444" : "#4ade80",
-                  fontFamily: "IBM Plex Mono",
-                  textShadow: `0 0 20px ${basesDestroyed > 2 ? "#ef4444" : "#4ade80"}`,
-                }}
-              >
-                {basesDestroyed > 2 ? "РОССИЯ ПОБЕДИЛА" : "УКРАИНА УСТОЯЛА"}
-              </div>
-
-              <div
-                style={{
-                  background: "#0d160d",
-                  border: "1px solid #1a3a1a",
-                  borderRadius: 6,
-                  padding: "16px 24px",
-                  minWidth: 320,
-                }}
-              >
-                <div
-                  style={{
-                    fontSize: 10,
-                    color: "#4a6a4a",
-                    letterSpacing: 2,
-                    marginBottom: 12,
-                    textAlign: "center",
-                  }}
-                >
-                  ИТОГИ ОПЕРАЦИИ
-                </div>
-                <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+          {phase==="result"&&(
+            <div style={{position:"absolute",inset:0,display:"flex",alignItems:"center",
+              justifyContent:"center",background:"rgba(6,12,6,0.8)",backdropFilter:"blur(4px)"}}>
+              <div style={{background:"#0d1a0d",border:"1px solid #4ade80",borderRadius:6,
+                padding:"32px 40px",textAlign:"center",minWidth:280}}>
+                <div style={{fontSize:24,fontWeight:"bold",color:"#4ade80",
+                  letterSpacing:4,marginBottom:12}}>ОПЕРАЦИЯ ЗАВЕРШЕНА</div>
+                <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:20}}>
                   {[
-                    { label: "Перехвачено целей", value: totalIntercepted, color: "#4ade80" },
-                    { label: "Целей прорвалось", value: totalHit, color: "#f97316" },
-                    { label: "Городов поражено", value: basesDestroyed, color: "#ef4444" },
-                    { label: "Нанесено урона", value: totalDmgDealt, color: "#facc15" },
-                    { label: "Тактических тиков", value: tick, color: "#3b82f6" },
-                  ].map((stat) => (
-                    <div
-                      key={stat.label}
-                      style={{
-                        display: "flex",
-                        justifyContent: "space-between",
-                        fontSize: 10,
-                        fontFamily: "IBM Plex Mono",
-                      }}
-                    >
-                      <span style={{ color: "#8aaa8a" }}>{stat.label}</span>
-                      <span style={{ color: stat.color, fontWeight: "bold" }}>{stat.value}</span>
+                    ["Запущено",units.length,"#94a3b8"],
+                    ["Сбито",intercepted,"#4ade80"],
+                    ["Поразило",reached,"#ef4444"],
+                    ["Уничтожено городов",cities.filter(c=>c.hp<=0).length,"#f97316"],
+                  ].map(([l,v,c])=>(
+                    <div key={l as string} style={{background:"#0f1a0f",border:"1px solid #162416",
+                      padding:"8px 12px",borderRadius:4}}>
+                      <div style={{fontSize:8,color:"#374151"}}>{l}</div>
+                      <div style={{fontSize:18,fontWeight:"bold",color:c as string}}>{v}</div>
                     </div>
                   ))}
                 </div>
-              </div>
-
-              <button
-                onClick={reset}
-                style={{
-                  background: "#1a3a1a",
-                  border: "1px solid #4ade80",
-                  color: "#4ade80",
-                  fontSize: 11,
-                  padding: "8px 24px",
-                  borderRadius: 4,
-                  cursor: "pointer",
-                  fontFamily: "IBM Plex Mono",
-                  letterSpacing: 2,
-                }}
-              >
-                НОВАЯ ОПЕРАЦИЯ
-              </button>
-            </div>
-          )}
-
-          {/* Live stats overlay (during battle) */}
-          {(phase === "battle" || phase === "paused") && (
-            <div
-              style={{
-                position: "absolute",
-                top: 8,
-                right: 8,
-                background: "#090f09cc",
-                border: "1px solid #1a3a1a",
-                borderRadius: 4,
-                padding: "6px 10px",
-                fontSize: 8,
-                fontFamily: "IBM Plex Mono",
-                color: "#4a6a4a",
-                minWidth: 140,
-              }}
-            >
-              <div style={{ color: "#facc15", marginBottom: 4, letterSpacing: 1 }}>
-                {phase === "paused" ? "■ ПАУЗА" : "▶ БОЕВЫЕ ДЕЙСТВИЯ"}
-              </div>
-              <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 2 }}>
-                <span>Активных целей:</span>
-                <span style={{ color: "#ef4444" }}>
-                  {units.filter((u) => !u.dead && !u.intercepted).length}
-                </span>
-              </div>
-              <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 2 }}>
-                <span>Перехвачено:</span>
-                <span style={{ color: "#4ade80" }}>{totalIntercepted}</span>
-              </div>
-              <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 2 }}>
-                <span>Поражено:</span>
-                <span style={{ color: "#f97316" }}>{totalHit}</span>
-              </div>
-              <div style={{ marginTop: 6, borderTop: "1px solid #1a3a1a", paddingTop: 4 }}>
-                {bases.map((b) => {
-                  const pct = b.hp / b.maxHp;
-                  const col = pct > 0.6 ? "#4ade80" : pct > 0.3 ? "#facc15" : "#ef4444";
-                  return (
-                    <div
-                      key={b.id}
-                      style={{ display: "flex", justifyContent: "space-between", marginBottom: 1 }}
-                    >
-                      <span>{b.label}</span>
-                      <span style={{ color: col }}>
-                        {b.hp}/{b.maxHp}
-                      </span>
-                    </div>
-                  );
-                })}
+                <button onClick={reset} style={{
+                  background:"transparent",border:"1px solid #4ade80",color:"#4ade80",
+                  fontSize:11,padding:"8px 24px",borderRadius:4,cursor:"pointer",
+                  fontFamily:"IBM Plex Mono",letterSpacing:2,
+                }}>↺ НОВАЯ ОПЕРАЦИЯ</button>
               </div>
             </div>
           )}
-        </div>
 
-        {/* ── RIGHT SIDE PANEL (summary) ── */}
-        <div
-          style={{
-            width: 200,
-            minWidth: 200,
-            background: "#090f09",
-            borderLeft: "1px solid #1a3a1a",
-            display: "flex",
-            flexDirection: "column",
-            overflow: "hidden",
-          }}
-        >
-          <div
-            style={{
-              borderBottom: "1px solid #1a3a1a",
-              padding: "6px 8px",
-              fontSize: 8,
-              color: "#4a6a4a",
-              letterSpacing: 2,
-            }}
-          >
-            СОСТОЯНИЕ ЦЕЛЕЙ
-          </div>
-
-          <div style={{ padding: "8px", flex: 1, overflowY: "auto" }}>
-            {bases.map((b) => {
-              const pct = b.hp / b.maxHp;
-              const col = pct > 0.6 ? "#4ade80" : pct > 0.3 ? "#facc15" : "#ef4444";
-              return (
-                <div
-                  key={b.id}
-                  style={{
-                    marginBottom: 10,
-                    borderBottom: "1px solid #0f1f0f",
-                    paddingBottom: 8,
-                  }}
-                >
-                  <div
-                    style={{
-                      display: "flex",
-                      justifyContent: "space-between",
-                      fontSize: 9,
-                      fontFamily: "IBM Plex Mono",
-                      marginBottom: 3,
-                    }}
-                  >
-                    <span style={{ color: col }}>{b.label}</span>
-                    <span style={{ color: col }}>
-                      {Math.round(pct * 100)}%
-                    </span>
-                  </div>
-                  <div
-                    style={{
-                      height: 4,
-                      background: "#0d160d",
-                      borderRadius: 2,
-                      overflow: "hidden",
-                    }}
-                  >
-                    <div
-                      style={{
-                        height: "100%",
-                        width: `${pct * 100}%`,
-                        background: col,
-                        borderRadius: 2,
-                        transition: "width 0.3s ease",
-                      }}
-                    />
-                  </div>
-                  <div
-                    style={{ fontSize: 7, color: "#2a4a2a", marginTop: 2, fontFamily: "IBM Plex Mono" }}
-                  >
-                    {b.hp} / {b.maxHp} HP
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-
-          {/* Spawn info */}
-          <div
-            style={{
-              borderTop: "1px solid #1a3a1a",
-              padding: "6px 8px",
-              fontSize: 7,
-              color: "#2a4a2a",
-              fontFamily: "IBM Plex Mono",
-            }}
-          >
-            <div style={{ marginBottom: 4, color: "#4a6a4a", letterSpacing: 1 }}>ТОЧКИ ВЫЛЕТА</div>
-            {SPAWN_POINTS.map((sp) => (
-              <div
-                key={sp.id}
-                style={{
-                  display: "flex",
-                  justifyContent: "space-between",
-                  marginBottom: 2,
-                  color: sp.side === "ru" ? "#ef444460" : "#3b82f660",
-                }}
-              >
-                <span>{sp.label}</span>
-                <span style={{ color: sp.side === "ru" ? "#ef4444" : "#3b82f6" }}>
-                  {sp.side === "ru" ? "РУС" : "НАТ"}
-                </span>
-              </div>
-            ))}
-          </div>
-
-          {/* Legend */}
-          <div
-            style={{
-              borderTop: "1px solid #1a3a1a",
-              padding: "6px 8px",
-              fontSize: 7,
-              color: "#2a4a2a",
-              fontFamily: "IBM Plex Mono",
-            }}
-          >
-            <div style={{ marginBottom: 4, color: "#4a6a4a", letterSpacing: 1 }}>ЛЕГЕНДА</div>
-            {[
-              { col: "#f97316", label: "Дроны RU" },
-              { col: "#dc2626", label: "Ракеты RU" },
-              { col: "#3b82f6", label: "ПВО NATO" },
-              { col: "#ef4444", label: "ПВО RUS" },
-              { col: "#4ade80", label: "Цели" },
-            ].map((item) => (
-              <div
-                key={item.label}
-                style={{ display: "flex", alignItems: "center", gap: 4, marginBottom: 2 }}
-              >
-                <div
-                  style={{
-                    width: 8,
-                    height: 8,
-                    borderRadius: "50%",
-                    background: item.col,
-                  }}
-                />
-                <span style={{ color: "#4a6a4a" }}>{item.label}</span>
-              </div>
-            ))}
+          {/* Mini zoom hint */}
+          <div style={{position:"absolute",bottom:8,right:8,fontSize:8,
+            color:"#1a3a1a",pointerEvents:"none"}}>
+            Колёсико мыши — зум • Перетащить — перемещение
           </div>
         </div>
       </div>
