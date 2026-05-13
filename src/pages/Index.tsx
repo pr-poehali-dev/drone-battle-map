@@ -1,1123 +1,2332 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 
-// ══════════════════════════════════════════════════════════════════
-// SVG ICONS — силуэты реальной техники
-// ══════════════════════════════════════════════════════════════════
-
-function DroneIcon({ type, color, size = 20 }: { type: string; color: string; size?: number }) {
-  const s = size;
-  switch (type) {
-    case "shahed": // Shahed-136 — дельта-крыло
-      return (
-        <svg width={s} height={s} viewBox="0 0 24 24" fill="none">
-          <polygon points="12,2 22,20 12,16 2,20" fill={color} opacity={0.9} />
-          <line x1="12" y1="2" x2="12" y2="18" stroke={color} strokeWidth="0.8" opacity={0.5} />
-        </svg>
-      );
-    case "geran": // Герань-2 — тупое крыло
-      return (
-        <svg width={s} height={s} viewBox="0 0 24 24" fill="none">
-          <polygon points="12,3 20,18 12,15 4,18" fill={color} opacity={0.9} />
-          <rect x="10" y="14" width="4" height="5" fill={color} opacity={0.7} />
-        </svg>
-      );
-    case "lancet": // Ланцет — крестообразный
-      return (
-        <svg width={s} height={s} viewBox="0 0 24 24" fill="none">
-          <ellipse cx="12" cy="12" rx="3" ry="8" fill={color} opacity={0.9} />
-          <ellipse cx="12" cy="12" rx="8" ry="2.5" fill={color} opacity={0.7} />
-          <circle cx="12" cy="12" r="2" fill={color} />
-        </svg>
-      );
-    case "orlan": // Орлан-10 — толкающий пропеллер
-      return (
-        <svg width={s} height={s} viewBox="0 0 24 24" fill="none">
-          <rect x="9" y="8" width="6" height="9" rx="1" fill={color} opacity={0.85} />
-          <line x1="3" y1="11" x2="21" y2="11" stroke={color} strokeWidth="2.5" strokeLinecap="round" />
-          <circle cx="12" cy="19" r="2" fill={color} opacity={0.6} />
-        </svg>
-      );
-    case "switchblade": // Switchblade 600 — складное крыло
-      return (
-        <svg width={s} height={s} viewBox="0 0 24 24" fill="none">
-          <polygon points="12,3 19,17 12,14 5,17" fill={color} opacity={0.9} />
-          <polygon points="12,8 17,14 12,12 7,14" fill={color} opacity={0.5} />
-        </svg>
-      );
-    case "reaper": // MQ-9 Reaper — обратное крыло
-      return (
-        <svg width={s} height={s} viewBox="0 0 24 24" fill="none">
-          <ellipse cx="12" cy="11" rx="2.5" ry="7" fill={color} opacity={0.9} />
-          <path d="M4,9 Q12,13 20,9" stroke={color} strokeWidth="2.5" fill="none" strokeLinecap="round" />
-          <path d="M8,17 Q12,19 16,17" stroke={color} strokeWidth="1.5" fill="none" />
-        </svg>
-      );
-    case "phoenix": // AeroVironment Phoenix Ghost
-      return (
-        <svg width={s} height={s} viewBox="0 0 24 24" fill="none">
-          <polygon points="12,2 21,19 12,15 3,19" fill={color} opacity={0.85} />
-          <polygon points="12,6 18,16 12,13 6,16" fill={color} opacity={0.4} />
-          <line x1="12" y1="2" x2="12" y2="16" stroke="#000" strokeWidth="0.5" opacity={0.4} />
-        </svg>
-      );
-    case "kalibr": // Калибр — крылатая ракета
-      return (
-        <svg width={s} height={s} viewBox="0 0 24 24" fill="none">
-          <ellipse cx="12" cy="12" rx="2" ry="9" fill={color} opacity={0.9} />
-          <polygon points="12,3 15,8 12,7 9,8" fill={color} />
-          <line x1="8" y1="14" x2="16" y2="14" stroke={color} strokeWidth="2" strokeLinecap="round" />
-          <polygon points="12,21 14,18 12,19 10,18" fill={color} opacity={0.7} />
-        </svg>
-      );
-    case "iskander": // Искандер — баллистическая
-      return (
-        <svg width={s} height={s} viewBox="0 0 24 24" fill="none">
-          <ellipse cx="12" cy="11" rx="2.5" ry="8" fill={color} opacity={0.9} />
-          <polygon points="12,3 15,7 12,6 9,7" fill={color} />
-          <polygon points="8,19 12,22 16,19 14,16 10,16" fill={color} opacity={0.6} />
-        </svg>
-      );
-    case "himars": // HIMARS ракета
-      return (
-        <svg width={s} height={s} viewBox="0 0 24 24" fill="none">
-          <rect x="9.5" y="4" width="5" height="14" rx="2.5" fill={color} opacity={0.9} />
-          <polygon points="12,2 15,5 9,5" fill={color} />
-          <line x1="7" y1="13" x2="17" y2="13" stroke={color} strokeWidth="1.5" />
-          <polygon points="9,18 15,18 13,22 11,22" fill={color} opacity={0.6} />
-        </svg>
-      );
-    case "tomahawk": // Tomahawk — крылатая
-      return (
-        <svg width={s} height={s} viewBox="0 0 24 24" fill="none">
-          <ellipse cx="12" cy="12" rx="2" ry="9" fill={color} opacity={0.9} />
-          <polygon points="12,3 14.5,7 12,6 9.5,7" fill={color} />
-          <line x1="7" y1="15" x2="17" y2="15" stroke={color} strokeWidth="2.5" strokeLinecap="round" />
-          <line x1="9" y1="18" x2="15" y2="18" stroke={color} strokeWidth="1.5" strokeLinecap="round" />
-        </svg>
-      );
-    default:
-      return (
-        <svg width={s} height={s} viewBox="0 0 24 24" fill="none">
-          <polygon points="12,2 22,20 12,16 2,20" fill={color} opacity={0.9} />
-        </svg>
-      );
-  }
-}
-
-function PVOIcon({ type, color, size = 20 }: { type: string; color: string; size?: number }) {
-  const s = size;
-  switch (type) {
-    case "s400": // С-400 — большой комплекс
-      return (
-        <svg width={s} height={s} viewBox="0 0 24 24" fill="none">
-          <rect x="8" y="14" width="8" height="6" rx="1" fill={color} opacity={0.8} />
-          <rect x="10" y="10" width="4" height="5" fill={color} opacity={0.9} />
-          <line x1="12" y1="10" x2="12" y2="2" stroke={color} strokeWidth="2" />
-          <line x1="9" y1="5" x2="15" y2="3" stroke={color} strokeWidth="1.5" strokeLinecap="round" />
-          <circle cx="15" cy="3" r="2" fill={color} />
-        </svg>
-      );
-    case "pantsir": // Панцирь — пушка+ракеты
-      return (
-        <svg width={s} height={s} viewBox="0 0 24 24" fill="none">
-          <rect x="7" y="13" width="10" height="7" rx="1" fill={color} opacity={0.8} />
-          <rect x="10" y="9" width="4" height="5" fill={color} opacity={0.9} />
-          <line x1="6" y1="11" x2="10" y2="9" stroke={color} strokeWidth="2" strokeLinecap="round" />
-          <line x1="18" y1="11" x2="14" y2="9" stroke={color} strokeWidth="2" strokeLinecap="round" />
-          <circle cx="6" cy="11" r="1.5" fill={color} />
-          <circle cx="18" cy="11" r="1.5" fill={color} />
-          <line x1="12" y1="9" x2="12" y2="3" stroke={color} strokeWidth="1.5" />
-        </svg>
-      );
-    case "tor": // Тор-М2
-      return (
-        <svg width={s} height={s} viewBox="0 0 24 24" fill="none">
-          <rect x="6" y="14" width="12" height="6" rx="1" fill={color} opacity={0.8} />
-          <rect x="9" y="10" width="6" height="5" rx="1" fill={color} opacity={0.9} />
-          <rect x="7" y="6" width="10" height="4" rx="2" fill={color} opacity={0.7} />
-          <circle cx="12" cy="5" r="3" fill="none" stroke={color} strokeWidth="1.5" />
-        </svg>
-      );
-    case "zsu": // ЗСУ-23-4 Шилка
-      return (
-        <svg width={s} height={s} viewBox="0 0 24 24" fill="none">
-          <rect x="5" y="14" width="14" height="6" rx="1" fill={color} opacity={0.75} />
-          <rect x="8" y="10" width="8" height="5" rx="1" fill={color} opacity={0.9} />
-          <line x1="7" y1="10" x2="5" y2="4" stroke={color} strokeWidth="2" strokeLinecap="round" />
-          <line x1="10" y1="10" x2="8" y2="4" stroke={color} strokeWidth="2" strokeLinecap="round" />
-          <line x1="14" y1="10" x2="16" y2="4" stroke={color} strokeWidth="2" strokeLinecap="round" />
-          <line x1="17" y1="10" x2="19" y2="4" stroke={color} strokeWidth="2" strokeLinecap="round" />
-        </svg>
-      );
-    case "patriot": // Patriot PAC-3
-      return (
-        <svg width={s} height={s} viewBox="0 0 24 24" fill="none">
-          <rect x="8" y="15" width="8" height="5" rx="1" fill={color} opacity={0.8} />
-          <rect x="10" y="10" width="4" height="6" fill={color} opacity={0.9} />
-          <line x1="12" y1="10" x2="12" y2="3" stroke={color} strokeWidth="2.5" />
-          <line x1="8" y1="6" x2="16" y2="4" stroke={color} strokeWidth="2" strokeLinecap="round" />
-          <rect x="14" y="3" width="4" height="3" rx="1" fill={color} opacity={0.7} />
-        </svg>
-      );
-    case "nasams": // NASAMS
-      return (
-        <svg width={s} height={s} viewBox="0 0 24 24" fill="none">
-          <rect x="7" y="14" width="10" height="6" rx="1" fill={color} opacity={0.8} />
-          <rect x="10" y="9" width="4" height="6" fill={color} opacity={0.9} />
-          <line x1="5" y1="10" x2="12" y2="8" stroke={color} strokeWidth="1.5" strokeLinecap="round" />
-          <line x1="19" y1="10" x2="12" y2="8" stroke={color} strokeWidth="1.5" strokeLinecap="round" />
-          <ellipse cx="5" cy="10" rx="2" ry="1.5" fill={color} opacity={0.8} />
-          <ellipse cx="19" cy="10" rx="2" ry="1.5" fill={color} opacity={0.8} />
-          <circle cx="12" cy="6" r="3" fill="none" stroke={color} strokeWidth="1.5" />
-          <line x1="12" y1="3" x2="12" y2="1" stroke={color} strokeWidth="1.5" />
-        </svg>
-      );
-    case "iris": // IRIS-T
-      return (
-        <svg width={s} height={s} viewBox="0 0 24 24" fill="none">
-          <rect x="8" y="14" width="8" height="6" rx="1" fill={color} opacity={0.8} />
-          <circle cx="12" cy="10" r="4" fill="none" stroke={color} strokeWidth="1.5" />
-          <circle cx="12" cy="10" r="2" fill={color} opacity={0.6} />
-          <line x1="12" y1="6" x2="9" y2="2" stroke={color} strokeWidth="1.5" strokeLinecap="round" />
-          <line x1="12" y1="6" x2="15" y2="2" stroke={color} strokeWidth="1.5" strokeLinecap="round" />
-        </svg>
-      );
-    case "avenger": // Avenger (Stinger)
-      return (
-        <svg width={s} height={s} viewBox="0 0 24 24" fill="none">
-          <rect x="6" y="15" width="12" height="5" rx="1" fill={color} opacity={0.75} />
-          <rect x="9" y="10" width="6" height="6" rx="1" fill={color} opacity={0.9} />
-          <line x1="7" y1="11" x2="4" y2="6" stroke={color} strokeWidth="1.5" strokeLinecap="round" />
-          <line x1="17" y1="11" x2="20" y2="6" stroke={color} strokeWidth="1.5" strokeLinecap="round" />
-          <ellipse cx="4" cy="6" rx="2" ry="1" fill={color} opacity={0.8} />
-          <ellipse cx="20" cy="6" rx="2" ry="1" fill={color} opacity={0.8} />
-        </svg>
-      );
-    default:
-      return (
-        <svg width={s} height={s} viewBox="0 0 24 24" fill="none">
-          <rect x="8" y="14" width="8" height="6" rx="1" fill={color} />
-          <line x1="12" y1="14" x2="12" y2="3" stroke={color} strokeWidth="2" />
-        </svg>
-      );
-  }
-}
-
-// ══════════════════════════════════════════════════════════════════
+// ─────────────────────────────────────────────
 // TYPES
-// ══════════════════════════════════════════════════════════════════
+// ─────────────────────────────────────────────
+type GamePhase = "setup" | "battle" | "paused" | "result";
+type ActiveSide = "ru" | "ua";
+type MapView = "ukraine" | "russia";
+type SpawnDir =
+  | "belgorod"
+  | "kursk"
+  | "donbas"
+  | "azov"
+  | "belarus"
+  | "voronezh"
+  | "poland"
+  | "moldova"
+  | "bsouth"
+  | "blacksea";
+type PanelTab = "attack" | "pvo" | "log";
 
-type GamePhase = "setup" | "battle" | "result";
-type PanelTab = "attack" | "defense" | "log";
-type Side = "ru" | "us";
-
-interface DroneType {
-  id: string; side: Side | "both";
-  name: string; fullName: string;
-  hp: number; speed: number; damage: number;
-  color: string; desc: string; size: number;
-  isStealth?: boolean; isBallistic?: boolean;
+interface WeaponDef {
+  id: string;
+  name: string;
+  hp: number;
+  speed: number;
+  dmg: number;
+  color: string;
+  stealth?: boolean;
+  ballistic?: boolean;
+  hypersonic?: boolean;
+  cruise?: boolean;
 }
 
-interface PVOType {
-  id: string; side: Side | "both";
-  name: string; fullName: string;
-  range: number; fireRate: number; damage: number;
-  color: string; desc: string;
+interface PVODef {
+  id: string;
+  name: string;
+  range: number;
+  fireRate: number;
+  dmg: number;
+  color: string;
   detectsStealth?: boolean;
+  antiballistic?: boolean;
 }
 
-interface DroneOrder { typeId: string; count: number; spawnIdx: number; }
-
-interface ActiveDrone {
-  uid: string; typeId: string;
-  x: number; y: number; tx: number; ty: number;
-  hp: number; maxHp: number; speed: number; damage: number;
-  destroyed: boolean; reached: boolean;
-  trail: { x: number; y: number }[];
-  angle: number;
+interface SpawnPoint {
+  id: SpawnDir;
+  label: string;
+  x: number;
+  y: number;
+  side: "ru" | "ua";
 }
 
-interface PlacedPVO {
-  uid: string; typeId: string;
-  x: number; y: number;
-  cooldown: number; active: boolean;
+interface BaseCity {
+  id: string;
+  label: string;
+  x: number;
+  y: number;
+  maxHp: number;
+  hp: number;
 }
 
-interface Base {
-  id: string; x: number; y: number;
-  hp: number; maxHp: number;
-  label: string; icon: string;
+interface OrderEntry {
+  id: string;
+  weaponId: string;
+  count: number;
+  spawnDir: SpawnDir;
+  side: "ru" | "ua";
+  isPVO: boolean;
+  pvoX?: number;
+  pvoY?: number;
 }
 
-interface Explosion { uid: string; x: number; y: number; }
-interface Projectile { uid: string; x: number; y: number; tx: number; ty: number; color: string; }
+interface ActiveUnit {
+  uid: string;
+  weaponId: string;
+  x: number;
+  y: number;
+  targetX: number;
+  targetY: number;
+  hp: number;
+  maxHp: number;
+  dead: boolean;
+  intercepted: boolean;
+  side: "ru" | "ua";
+  isPVO: false;
+  color: string;
+  speed: number;
+  dmg: number;
+  stealth: boolean;
+  ballistic: boolean;
+  hypersonic: boolean;
+}
 
-// ══════════════════════════════════════════════════════════════════
-// STATIC DATA
-// ══════════════════════════════════════════════════════════════════
+interface ActivePVO {
+  uid: string;
+  defId: string;
+  x: number;
+  y: number;
+  hp: number;
+  dead: boolean;
+  side: "ru" | "ua";
+  isPVO: true;
+  color: string;
+  range: number;
+  fireRate: number;
+  dmg: number;
+  cooldown: number;
+  detectsStealth: boolean;
+  antiballistic: boolean;
+}
 
-const DRONE_TYPES: DroneType[] = [
-  // RUSSIA
-  { id: "shahed", side: "ru", name: "Shahed-136", fullName: "Shahed-136 (Герань-2)", hp: 2, speed: 0.9, damage: 20, color: "#f97316", desc: "Иранский барражирующий боеприпас, дельта-крыло", size: 7 },
-  { id: "geran", side: "ru", name: "Герань-2", fullName: "БПЛА «Герань-2»", hp: 2, speed: 0.85, damage: 22, color: "#fb923c", desc: "Российский аналог Shahed, улучшенная навигация", size: 7 },
-  { id: "lancet", side: "ru", name: "Ланцет-3", fullName: "БПЛА «Ланцет-3»", hp: 3, speed: 1.1, damage: 15, color: "#a855f7", desc: "Барражирующий боеприпас для точечных ударов", size: 6 },
-  { id: "orlan", side: "ru", name: "Орлан-10", fullName: "БПЛА «Орлан-10»", hp: 2, speed: 1.3, damage: 8, color: "#94a3b8", desc: "Разведывательный БПЛА, корректировщик огня", size: 6, isStealth: false },
-  { id: "kalibr", side: "ru", name: "Калибр", fullName: "Крылатая ракета 3М-14", hp: 5, speed: 1.4, damage: 40, color: "#ef4444", desc: "Высокоточная крылатая ракета (дальность 1500+ км)", size: 8 },
-  { id: "iskander", side: "ru", name: "Искандер-М", fullName: "ОТРК «Искандер-М»", hp: 6, speed: 2.0, damage: 55, color: "#dc2626", desc: "Оперативно-тактический ракетный комплекс", size: 8, isBallistic: true },
-  { id: "kh101", side: "ru", name: "Х-101", fullName: "Авиационная КР Х-101", hp: 5, speed: 1.2, damage: 45, color: "#c0392b", desc: "Стратегическая крылатая ракета, стелс", size: 7, isStealth: true },
-  { id: "kinzhal", side: "ru", name: "Кинжал", fullName: "Авиационный ракетный комплекс «Кинжал»", hp: 8, speed: 3.0, damage: 70, color: "#7c3aed", desc: "Гиперзвуковая ракета, 10 Мах", size: 9, isBallistic: true },
-  // USA / NATO
-  { id: "switchblade", side: "us", name: "Switchblade 600", fullName: "AeroVironment Switchblade 600", hp: 2, speed: 1.0, damage: 18, color: "#3b82f6", desc: "Американский барражирующий боеприпас", size: 6 },
-  { id: "reaper", side: "us", name: "MQ-9 Reaper", fullName: "General Atomics MQ-9 Reaper", hp: 4, speed: 1.2, damage: 12, color: "#60a5fa", desc: "Тяжёлый ударный БПЛА, носитель Hellfire", size: 8 },
-  { id: "phoenix", side: "us", name: "Phoenix Ghost", fullName: "AeroVironment Phoenix Ghost", hp: 2, speed: 1.1, damage: 16, color: "#93c5fd", desc: "БПЛА для точечных ударов, сделан для Украины", size: 6, isStealth: true },
-  { id: "himars", side: "us", name: "HIMARS", fullName: "M142 HIMARS GMLRS", hp: 4, speed: 1.8, damage: 35, color: "#16a34a", desc: "Высокоточная реактивная артиллерия", size: 8 },
-  { id: "tomahawk", side: "us", name: "Tomahawk", fullName: "BGM-109 Tomahawk Block V", hp: 5, speed: 1.3, damage: 45, color: "#1d4ed8", desc: "Крылатая ракета морского и воздушного базирования", size: 8 },
-  { id: "atacms", side: "us", name: "ATACMS", fullName: "MGM-140 ATACMS", hp: 6, speed: 2.2, damage: 60, color: "#1e40af", desc: "Оперативно-тактическая ракета (дальность 300 км)", size: 9, isBallistic: true },
-  { id: "jassm", side: "us", name: "JASSM-ER", fullName: "AGM-158B JASSM-ER", hp: 5, speed: 1.4, damage: 50, color: "#2563eb", desc: "Авиационная крылатая ракета-невидимка", size: 8, isStealth: true },
+interface Explosion {
+  uid: string;
+  x: number;
+  y: number;
+  t: number;
+}
+
+interface LogEntry {
+  t: number;
+  msg: string;
+  kind: "intercept" | "hit" | "destroy" | "info";
+}
+
+// ─────────────────────────────────────────────
+// DATA
+// ─────────────────────────────────────────────
+const RU_WEAPONS: WeaponDef[] = [
+  { id: "shahed136", name: "Shahed-136/Герань-2", hp: 2, speed: 0.8, dmg: 22, color: "#f97316" },
+  { id: "lancet3", name: "Ланцет-3", hp: 3, speed: 1.2, dmg: 18, color: "#fb923c" },
+  { id: "orlan10", name: "Орлан-10", hp: 1, speed: 1.4, dmg: 5, color: "#94a3b8", stealth: true },
+  { id: "geran", name: "Герань-1М", hp: 2, speed: 0.9, dmg: 20, color: "#ef4444" },
+  { id: "kub", name: "БПЛА КУБ-БЛА", hp: 2, speed: 1.3, dmg: 15, color: "#f59e0b" },
+  { id: "superkam", name: "SuperCam S350", hp: 1, speed: 1.1, dmg: 3, color: "#a78bfa", stealth: true },
+  { id: "kalibr", name: "3М-14 Калибр", hp: 5, speed: 1.5, dmg: 45, color: "#dc2626", cruise: true },
+  { id: "kh101", name: "Х-101", hp: 4, speed: 1.3, dmg: 50, color: "#b91c1c", stealth: true, cruise: true },
+  { id: "iskander", name: "Искандер-М (9М723)", hp: 6, speed: 2.5, dmg: 60, color: "#7c3aed", ballistic: true },
+  { id: "kinzhal", name: "Кинжал (Х-47М2)", hp: 8, speed: 4.0, dmg: 75, color: "#6d28d9", ballistic: true, hypersonic: true },
+  { id: "kh22", name: "Х-22 «Буря»", hp: 5, speed: 2.0, dmg: 65, color: "#9333ea", ballistic: true },
+  { id: "oniks", name: "П-800 Оникс", hp: 5, speed: 2.2, dmg: 55, color: "#c026d3", cruise: true },
+  { id: "kh55", name: "Х-55/Х-555", hp: 4, speed: 1.2, dmg: 48, color: "#db2777", cruise: true, stealth: true },
+  { id: "zircon", name: "Циркон (3М22)", hp: 8, speed: 5.0, dmg: 80, color: "#4f46e5", hypersonic: true, ballistic: true },
 ];
 
-const PVO_TYPES: PVOType[] = [
-  // RUSSIA
-  { id: "s400", side: "ru", name: "С-400", fullName: "С-400 «Триумф»", range: 220, fireRate: 20, damage: 6, color: "#ef4444", desc: "Зенитный ракетный комплекс большой дальности", detectsStealth: true },
-  { id: "pantsir", side: "ru", name: "Панцирь-С1", fullName: "ЗРПК «Панцирь-С1»", range: 95, fireRate: 5, damage: 2, color: "#f97316", desc: "Зенитный ракетно-пушечный комплекс ближней зоны", detectsStealth: false },
-  { id: "tor", side: "ru", name: "Тор-М2", fullName: "ЗРК «Тор-М2»", range: 120, fireRate: 14, damage: 3, color: "#eab308", desc: "Войсковой зенитный комплекс малой дальности", detectsStealth: false },
-  { id: "zsu", side: "ru", name: "Шилка", fullName: "ЗСУ-23-4 «Шилка»", range: 70, fireRate: 3, damage: 1, color: "#84cc16", desc: "Зенитная самоходная установка, 4 пушки", detectsStealth: false },
-  { id: "s300", side: "ru", name: "С-300ВМ", fullName: "С-300В4 «Антей»", range: 190, fireRate: 22, damage: 5, color: "#dc2626", desc: "Зенитный ракетный комплекс средней и большой дальности", detectsStealth: true },
-  // USA / NATO
-  { id: "patriot", side: "us", name: "Patriot PAC-3", fullName: "MIM-104F Patriot PAC-3 MSE", range: 200, fireRate: 22, damage: 6, color: "#3b82f6", desc: "Американский ЗРК большой дальности, перехватывает баллистические", detectsStealth: true },
-  { id: "nasams", side: "us", name: "NASAMS", fullName: "National Advanced Surface-to-Air Missile System", range: 150, fireRate: 16, damage: 4, color: "#60a5fa", desc: "Норвежско-американский ЗРК, AMRAAM-ракеты", detectsStealth: false },
-  { id: "iris", side: "us", name: "IRIS-T SLM", fullName: "IRIS-T SLM (Diehl Defence)", range: 130, fireRate: 12, damage: 3, color: "#22d3ee", desc: "Немецкий ЗРК средней дальности (поставки Украине)", detectsStealth: false },
-  { id: "avenger", side: "us", name: "Avenger", fullName: "M1097 Avenger (Stinger)", range: 75, fireRate: 8, damage: 2, color: "#34d399", desc: "Мобильный ЗРК на базе HMMWV, ракеты Stinger", detectsStealth: false },
-  { id: "gepard", side: "us", name: "Gepard", fullName: "Flakpanzer Gepard (Германия)", range: 65, fireRate: 4, damage: 1, color: "#4ade80", desc: "Немецкая ЗСУ, 2×35мм пушки Oerlikon", detectsStealth: false },
+const UA_PVO: PVODef[] = [
+  { id: "s300", name: "С-300ПС/ПМ", range: 180, fireRate: 20, dmg: 5, color: "#3b82f6", detectsStealth: true },
+  { id: "buk", name: "Бук-М2/М3", range: 130, fireRate: 16, dmg: 4, color: "#06b6d4" },
+  { id: "hawk", name: "MIM-23 Hawk", range: 120, fireRate: 18, dmg: 3, color: "#0891b2" },
+  { id: "patriot", name: "MIM-104 Patriot PAC-3", range: 200, fireRate: 22, dmg: 6, color: "#1d4ed8", detectsStealth: true, antiballistic: true },
+  { id: "nasams", name: "NASAMS 3", range: 140, fireRate: 14, dmg: 4, color: "#2563eb" },
+  { id: "irist", name: "IRIS-T SLM", range: 120, fireRate: 12, dmg: 3, color: "#0284c7" },
+  { id: "gepard", name: "Flakpanzer Gepard", range: 60, fireRate: 3, dmg: 1, color: "#16a34a" },
+  { id: "zu23", name: "ЗУ-23-2М Зенит", range: 45, fireRate: 2, dmg: 1, color: "#15803d" },
+  { id: "stinger", name: "FIM-92 Stinger MANPADS", range: 50, fireRate: 8, dmg: 2, color: "#65a30d" },
+  { id: "cram", name: "C-RAM Centurion", range: 55, fireRate: 2, dmg: 1, color: "#84cc16" },
+  { id: "aim120", name: "AMRAAM / AIM-120C", range: 160, fireRate: 16, dmg: 4, color: "#3b82f6" },
+  { id: "aster30", name: "Aster-30 SAMP/T", range: 170, fireRate: 18, dmg: 5, color: "#6366f1", detectsStealth: true, antiballistic: true },
 ];
 
-const BASES: Base[] = [
-  { id: "b1", x: 450, y: 285, hp: 150, maxHp: 150, label: "Командный центр", icon: "★" },
-  { id: "b2", x: 285, y: 355, hp: 100, maxHp: 100, label: "Арсенал", icon: "⬡" },
-  { id: "b3", x: 610, y: 225, hp: 100, maxHp: 100, label: "РЛС", icon: "◎" },
-  { id: "b4", x: 355, y: 195, hp: 80, maxHp: 80, label: "Склад ГСМ", icon: "▣" },
-  { id: "b5", x: 540, y: 370, hp: 80, maxHp: 80, label: "Аэродром", icon: "⊕" },
+const RU_PVO: PVODef[] = [
+  { id: "s400", name: "С-400 Триумф", range: 220, fireRate: 20, dmg: 6, color: "#ef4444", detectsStealth: true, antiballistic: true },
+  { id: "pantsir", name: "Панцирь-С1/С2", range: 90, fireRate: 5, dmg: 2, color: "#f97316" },
+  { id: "tor", name: "Тор-М2", range: 115, fireRate: 12, dmg: 3, color: "#eab308" },
+  { id: "s350", name: "С-350 Витязь", range: 150, fireRate: 16, dmg: 4, color: "#f59e0b" },
+  { id: "tunguska", name: "2К22 Тунгуска-М1", range: 70, fireRate: 4, dmg: 1, color: "#84cc16" },
+  { id: "shilka", name: "ЗСУ-23-4 Шилка", range: 55, fireRate: 3, dmg: 1, color: "#4ade80" },
 ];
 
-const SPAWN_POINTS = [
-  { x: 30, y: 50, label: "СЗ", angle: 135, dx: 1, dy: 1 },
-  { x: 900, y: 65, label: "СВ", angle: 225, dx: -1, dy: 1 },
-  { x: 30, y: 495, label: "ЮЗ", angle: 45, dx: 1, dy: -1 },
-  { x: 890, y: 480, label: "ЮВ", angle: 315, dx: -1, dy: -1 },
-  { x: 460, y: 18, label: "СЕВЕР", angle: 180, dx: 0, dy: 1 },
-  { x: 460, y: 542, label: "ЮГ", angle: 0, dx: 0, dy: -1 },
-  { x: 12, y: 275, label: "ЗАПАД", angle: 90, dx: 1, dy: 0 },
-  { x: 910, y: 275, label: "ВОСТОК", angle: 270, dx: -1, dy: 0 },
+const SPAWN_POINTS: SpawnPoint[] = [
+  { id: "belgorod", label: "БЕЛГОРОД", x: 900, y: 100, side: "ru" },
+  { id: "kursk", label: "КУРСК", x: 900, y: 250, side: "ru" },
+  { id: "donbas", label: "ДОНБАС", x: 900, y: 380, side: "ru" },
+  { id: "azov", label: "АЗОВ", x: 900, y: 480, side: "ru" },
+  { id: "belarus", label: "БЕЛАРУСЬ", x: 430, y: 15, side: "ru" },
+  { id: "voronezh", label: "ВОРОНЕЖ", x: 600, y: 15, side: "ru" },
+  { id: "poland", label: "ПОЛЬША", x: 15, y: 200, side: "ua" },
+  { id: "moldova", label: "МОЛДОВА", x: 15, y: 350, side: "ua" },
+  { id: "bsouth", label: "ЧС", x: 200, y: 550, side: "ua" },
+  { id: "blacksea", label: "ЧЕРНОЕ МОРЕ", x: 550, y: 550, side: "ua" },
 ];
 
-const MAP_W = 940;
-const MAP_H = 560;
-const TICK_MS = 55;
+const INITIAL_BASES: BaseCity[] = [
+  { id: "kyiv", label: "Київ", x: 430, y: 160, maxHp: 200, hp: 200 },
+  { id: "kharkiv", label: "Харків", x: 670, y: 145, maxHp: 120, hp: 120 },
+  { id: "dnipro", label: "Дніпро", x: 550, y: 280, maxHp: 120, hp: 120 },
+  { id: "zaporizhzhia", label: "Запоріжжя", x: 560, y: 355, maxHp: 100, hp: 100 },
+  { id: "odesa", label: "Одеса", x: 375, y: 425, maxHp: 100, hp: 100 },
+  { id: "lviv", label: "Львів", x: 185, y: 185, maxHp: 100, hp: 100 },
+];
 
-let _uid = 0;
-const mkuid = () => `u${++_uid}`;
+// ─────────────────────────────────────────────
+// WEAPON ICON
+// ─────────────────────────────────────────────
+function WeaponIcon({ id, color, size = 32 }: { id: string; color: string; size?: number }) {
+  const s: React.CSSProperties = { width: size, height: size, display: "block" };
+  const isDrone = ["shahed136", "geran", "lancet3", "kub", "orlan10", "superkam"].includes(id);
+  const isCruise = ["kalibr", "kh101", "kh55", "oniks"].includes(id);
+  const isBallistic = ["iskander", "kinzhal", "kh22", "zircon"].includes(id);
 
-function dist(ax: number, ay: number, bx: number, by: number) {
-  return Math.sqrt((ax - bx) ** 2 + (ay - by) ** 2);
-}
-
-function angleTo(x1: number, y1: number, x2: number, y2: number) {
-  return Math.atan2(y2 - y1, x2 - x1) * (180 / Math.PI);
-}
-
-// ══════════════════════════════════════════════════════════════════
-// REALISTIC MAP
-// ══════════════════════════════════════════════════════════════════
-
-function RealisticMap() {
+  if (id === "shahed136" || id === "geran") {
+    return (
+      <svg viewBox="0 0 32 32" style={s} fill={color} stroke={color} strokeWidth="0.5">
+        <polygon points="16,3 29,25 16,20 3,25" opacity="0.95" />
+        <line x1="16" y1="3" x2="16" y2="21" stroke="#000" strokeWidth="1" />
+        <rect x="14" y="20" width="4" height="5" rx="1" fill="#222" stroke={color} strokeWidth="0.8" />
+      </svg>
+    );
+  }
+  if (id === "lancet3" || id === "kub") {
+    return (
+      <svg viewBox="0 0 32 32" style={s} fill={color} stroke={color} strokeWidth="0.5">
+        <ellipse cx="16" cy="16" rx="3" ry="10" opacity="0.95" />
+        <ellipse cx="16" cy="16" rx="10" ry="3" opacity="0.7" />
+        <circle cx="16" cy="16" r="2.5" fill="#222" stroke={color} strokeWidth="1" />
+      </svg>
+    );
+  }
+  if (id === "orlan10" || id === "superkam") {
+    return (
+      <svg viewBox="0 0 32 32" style={s} fill={color} stroke={color} strokeWidth="0.5">
+        <rect x="12" y="8" width="8" height="12" rx="2" opacity="0.9" />
+        <line x1="2" y1="13" x2="30" y2="13" strokeWidth="3" strokeLinecap="round" stroke={color} fill="none" />
+        <circle cx="16" cy="23" r="3" fill="#222" stroke={color} strokeWidth="1" />
+      </svg>
+    );
+  }
+  if (isCruise) {
+    return (
+      <svg viewBox="0 0 32 32" style={s} fill={color} stroke={color} strokeWidth="0.5">
+        <ellipse cx="16" cy="16" rx="2.5" ry="12" opacity="0.95" />
+        <polygon points="16,4 18,9 14,9" fill={color} />
+        <line x1="10" y1="18" x2="22" y2="18" strokeWidth="3" strokeLinecap="round" stroke={color} fill="none" />
+        <line x1="12" y1="22" x2="20" y2="22" strokeWidth="2" stroke={color} fill="none" />
+      </svg>
+    );
+  }
+  if (isBallistic) {
+    return (
+      <svg viewBox="0 0 32 32" style={s} fill={color} stroke={color} strokeWidth="0.5">
+        <ellipse cx="16" cy="14" rx="3.5" ry="11" opacity="0.95" />
+        <polygon points="16,3 20,10 12,10" fill={color} />
+        <polygon points="10,25 16,29 22,25 20,21 12,21" fill={color} opacity="0.7" />
+        <line x1="16" y1="3" x2="16" y2="26" stroke="#000" strokeWidth="0.8" />
+      </svg>
+    );
+  }
+  // fallback generic
+  if (isDrone) {
+    return (
+      <svg viewBox="0 0 32 32" style={s} fill={color} stroke={color} strokeWidth="0.5">
+        <polygon points="16,3 29,25 16,20 3,25" opacity="0.9" />
+        <line x1="16" y1="3" x2="16" y2="21" stroke="#000" strokeWidth="1" />
+      </svg>
+    );
+  }
   return (
-    <g>
-      {/* Terrain base */}
-      <rect x={0} y={0} width={MAP_W} height={MAP_H} fill="#0c1a0c" />
-
-      {/* Large ground regions */}
-      <ellipse cx={200} cy={160} rx={170} ry={90} fill="#142014" opacity={0.8} />
-      <ellipse cx={740} cy={145} rx={150} ry={80} fill="#142014" opacity={0.75} />
-      <ellipse cx={140} cy={430} rx={130} ry={75} fill="#142014" opacity={0.7} />
-      <ellipse cx={790} cy={415} rx={145} ry={80} fill="#142014" opacity={0.75} />
-      <ellipse cx={470} cy={475} rx={180} ry={65} fill="#142014" opacity={0.7} />
-      <ellipse cx={470} cy={290} rx={280} ry={180} fill="#101d10" opacity={0.4} />
-
-      {/* Hills / elevation */}
-      <ellipse cx={190} cy={150} rx={110} ry={55} fill="#1c2e1c" opacity={0.7} />
-      <ellipse cx={735} cy={138} rx={100} ry={52} fill="#1c2e1c" opacity={0.65} />
-      <ellipse cx={135} cy={422} rx={80} ry={45} fill="#1c2e1c" opacity={0.6} />
-      <ellipse cx={785} cy={408} rx={95} ry={50} fill="#1c2e1c" opacity={0.65} />
-
-      {/* Hill peaks */}
-      <ellipse cx={185} cy={145} rx={60} ry={30} fill="#253d25" opacity={0.7} />
-      <ellipse cx={730} cy={132} rx={55} ry={28} fill="#253d25" opacity={0.65} />
-
-      {/* Main river — sinuous */}
-      <path d="M 0 310 C 60 300, 120 325, 190 315 C 260 305, 320 330, 400 320 C 480 310, 530 335, 610 328 C 690 321, 760 340, 840 332 C 880 328, 910 335, 940 330"
-        fill="none" stroke="#0f2744" strokeWidth={22} opacity={0.9} />
-      <path d="M 0 310 C 60 300, 120 325, 190 315 C 260 305, 320 330, 400 320 C 480 310, 530 335, 610 328 C 690 321, 760 340, 840 332 C 880 328, 910 335, 940 330"
-        fill="none" stroke="#153a6e" strokeWidth={14} opacity={0.6} />
-      <path d="M 0 310 C 60 300, 120 325, 190 315 C 260 305, 320 330, 400 320 C 480 310, 530 335, 610 328 C 690 321, 760 340, 840 332"
-        fill="none" stroke="#1d4f94" strokeWidth={5} opacity={0.4} />
-      {/* River shimmer */}
-      <path d="M 100 312 C 150 305, 200 318, 250 311" fill="none" stroke="#3b82f6" strokeWidth={1.5} opacity={0.3} />
-      <path d="M 550 330 C 600 323, 650 335, 700 329" fill="none" stroke="#3b82f6" strokeWidth={1.5} opacity={0.3} />
-
-      {/* Tributary */}
-      <path d="M 285 355 C 290 340, 295 328, 300 318" fill="none" stroke="#0f2744" strokeWidth={10} opacity={0.7} />
-      <path d="M 285 355 C 290 340, 295 328, 300 318" fill="none" stroke="#153a6e" strokeWidth={5} opacity={0.5} />
-
-      {/* Roads */}
-      {[
-        "M 450 285 L 50 60", "M 450 285 L 880 75",
-        "M 450 285 L 55 490", "M 450 285 L 880 472",
-        "M 450 285 L 460 20", "M 450 285 L 460 540",
-        "M 450 285 L 20 278", "M 450 285 L 920 278",
-      ].map((d, i) => (
-        <g key={i}>
-          <path d={d} stroke="#1e2d1e" strokeWidth={7} opacity={0.8} fill="none" />
-          <path d={d} stroke="#2d4020" strokeWidth={3} opacity={0.5} fill="none" strokeDasharray="10 6" />
-          <path d={d} stroke="#3d5a2e" strokeWidth={1} opacity={0.3} fill="none" strokeDasharray="16 8" />
-        </g>
-      ))}
-
-      {/* Forest clusters */}
-      {[
-        // NW forest
-        [165,135],[178,148],[155,158],[185,162],[200,150],[195,138],[210,158],[170,165],
-        // NE forest
-        [710,128],[725,140],[705,150],[740,138],[755,150],[720,155],
-        // SW
-        [118,408],[132,420],[115,432],[148,418],[138,435],
-        // SE
-        [762,398],[778,410],[755,422],[793,415],[775,425],
-      ].map(([cx, cy], i) => (
-        <g key={`f${i}`}>
-          <circle cx={cx} cy={cy} r={10} fill="#0d3b1a" opacity={0.8} />
-          <circle cx={cx} cy={cy} r={7} fill="#0f4a1f" opacity={0.7} />
-          <circle cx={cx} cy={cy - 4} r={5} fill="#145e26" opacity={0.75} />
-          <polygon points={`${cx},${cy - 12} ${cx - 5},${cy - 4} ${cx + 5},${cy - 4}`}
-            fill="#176b2a" opacity={0.65} />
-        </g>
-      ))}
-
-      {/* Small lakes */}
-      <ellipse cx={650} cy={430} rx={35} ry={18} fill="#0f2744" opacity={0.6} />
-      <ellipse cx={650} cy={430} rx={28} ry={13} fill="#1a3d6b" opacity={0.4} />
-      <ellipse cx={290} cy={140} rx={25} ry={13} fill="#0f2744" opacity={0.55} />
-      <ellipse cx={290} cy={140} rx={20} ry={9} fill="#1a3d6b" opacity={0.35} />
-
-      {/* Grid */}
-      {Array.from({ length: 9 }, (_, row) =>
-        Array.from({ length: 17 }, (_, col) => (
-          <circle key={`g${row}-${col}`} cx={55 + col * 52} cy={32 + row * 62}
-            r={0.9} fill="#2d5a2d" opacity={0.3} />
-        ))
-      )}
-
-      {/* Coordinate labels */}
-      {Array.from({ length: 9 }, (_, i) => (
-        <text key={`cl${i}`} x={55 + i * 104} y={MAP_H - 5} textAnchor="middle"
-          fontSize={8} fill="#2d4a2d" opacity={0.5}
-          style={{ fontFamily: "'IBM Plex Mono', monospace" }}>
-          {String.fromCharCode(65 + i)}
-        </text>
-      ))}
-      {Array.from({ length: 8 }, (_, i) => (
-        <text key={`rw${i}`} x={8} y={40 + i * 68} textAnchor="middle"
-          fontSize={8} fill="#2d4a2d" opacity={0.5}
-          style={{ fontFamily: "'IBM Plex Mono', monospace" }}>
-          {i + 1}
-        </text>
-      ))}
-
-      {/* Border tick marks */}
-      {Array.from({ length: 20 }, (_, i) => (
-        <g key={`bt${i}`}>
-          <line x1={45 + i * 44} y1={0} x2={45 + i * 44} y2={5}
-            stroke="#1a3a1a" strokeWidth={1} opacity={0.4} />
-          <line x1={45 + i * 44} y1={MAP_H} x2={45 + i * 44} y2={MAP_H - 5}
-            stroke="#1a3a1a" strokeWidth={1} opacity={0.4} />
-        </g>
-      ))}
-    </g>
+    <svg viewBox="0 0 32 32" style={s} fill={color} stroke={color} strokeWidth="0.5">
+      <ellipse cx="16" cy="16" rx="2.5" ry="12" opacity="0.95" />
+      <polygon points="16,4 18,9 14,9" fill={color} />
+      <line x1="8" y1="19" x2="24" y2="19" strokeWidth="3" strokeLinecap="round" stroke={color} fill="none" />
+    </svg>
   );
 }
 
-// ══════════════════════════════════════════════════════════════════
-// MAIN
-// ══════════════════════════════════════════════════════════════════
+// ─────────────────────────────────────────────
+// PVO ICON
+// ─────────────────────────────────────────────
+function PVOIcon({ id, color, size = 32 }: { id: string; color: string; size?: number }) {
+  const s: React.CSSProperties = { width: size, height: size, display: "block" };
+  const isHeavy = ["patriot", "s300", "s400", "nasams", "aster30", "aim120"].includes(id);
+  const isTwin = ["pantsir", "gepard", "shilka", "tunguska"].includes(id);
+  const isMed = ["buk", "tor", "s350", "hawk", "irist"].includes(id);
+  const isSmall = ["stinger", "cram", "zu23"].includes(id);
 
-export default function Index() {
-  const [phase, setPhase] = useState<GamePhase>("setup");
-  const [tab, setTab] = useState<PanelTab>("attack");
-  const [attackSide, setAttackSide] = useState<Side>("ru");
-  const [defenseSide, setDefenseSide] = useState<Side>("us");
+  if (isHeavy) {
+    return (
+      <svg viewBox="0 0 32 32" style={s} fill={color} stroke={color} strokeWidth="0.5">
+        <rect x="12" y="18" width="8" height="10" rx="1" opacity="0.9" />
+        <rect x="14" y="12" width="4" height="7" opacity="0.8" />
+        <path d="M10,8 Q16,14 22,8" fill="none" stroke={color} strokeWidth="2.5" />
+        <line x1="16" y1="8" x2="16" y2="3" strokeWidth="2" stroke={color} />
+        <rect x="20" y="5" width="4" height="7" rx="1" opacity="0.8" />
+        <circle cx="22" cy="5" r="2" fill="#222" stroke={color} strokeWidth="1" />
+      </svg>
+    );
+  }
+  if (isTwin) {
+    return (
+      <svg viewBox="0 0 32 32" style={s} fill={color} stroke={color} strokeWidth="0.5">
+        <rect x="8" y="16" width="16" height="12" rx="2" opacity="0.9" />
+        <rect x="11" y="10" width="10" height="8" rx="2" opacity="0.8" />
+        <line x1="6" y1="13" x2="11" y2="11" strokeWidth="2.5" strokeLinecap="round" stroke={color} />
+        <line x1="26" y1="13" x2="21" y2="11" strokeWidth="2.5" strokeLinecap="round" stroke={color} />
+        <circle cx="6" cy="13" r="2" fill="#222" stroke={color} strokeWidth="1" />
+        <circle cx="26" cy="13" r="2" fill="#222" stroke={color} strokeWidth="1" />
+      </svg>
+    );
+  }
+  if (isMed) {
+    return (
+      <svg viewBox="0 0 32 32" style={s} fill={color} stroke={color} strokeWidth="0.5">
+        <rect x="7" y="18" width="18" height="10" rx="2" opacity="0.9" />
+        <rect x="10" y="12" width="12" height="8" rx="1" opacity="0.8" />
+        <rect x="8" y="8" width="5" height="8" rx="1" opacity="0.7" />
+        <rect x="19" y="8" width="5" height="8" rx="1" opacity="0.7" />
+        <line x1="16" y1="12" x2="16" y2="4" strokeWidth="2" stroke={color} />
+        <circle cx="16" cy="6" r="3" fill="none" stroke={color} strokeWidth="1.5" />
+      </svg>
+    );
+  }
+  if (isSmall) {
+    return (
+      <svg viewBox="0 0 32 32" style={s} fill={color} stroke={color} strokeWidth="0.5">
+        <rect x="9" y="20" width="14" height="8" rx="2" opacity="0.9" />
+        <rect x="12" y="14" width="8" height="8" rx="1" opacity="0.8" />
+        <line x1="8" y1="16" x2="12" y2="14" strokeWidth="2" strokeLinecap="round" stroke={color} />
+        <line x1="24" y1="16" x2="20" y2="14" strokeWidth="2" strokeLinecap="round" stroke={color} />
+        <line x1="16" y1="14" x2="16" y2="6" strokeWidth="1.5" stroke={color} />
+        <circle cx="16" cy="5" r="2.5" fill="none" stroke={color} strokeWidth="1.5" />
+      </svg>
+    );
+  }
+  return (
+    <svg viewBox="0 0 32 32" style={s} fill={color} stroke={color} strokeWidth="0.5">
+      <rect x="10" y="18" width="12" height="10" rx="1" opacity="0.9" />
+      <rect x="13" y="12" width="6" height="8" opacity="0.8" />
+      <path d="M10,8 Q16,13 22,8" fill="none" stroke={color} strokeWidth="2" />
+      <line x1="16" y1="8" x2="16" y2="3" strokeWidth="2" stroke={color} />
+    </svg>
+  );
+}
 
-  // No budget limit
-  const [droneOrders, setDroneOrders] = useState<DroneOrder[]>([]);
-  const [selectedDroneType, setSelectedDroneType] = useState<string>("shahed");
-  const [selectedSpawn, setSelectedSpawn] = useState<number>(0);
+// ─────────────────────────────────────────────
+// UKRAINE MAP
+// ─────────────────────────────────────────────
+function UkraineMap({
+  bases,
+  units,
+  pvos,
+  explosions,
+  onMapClick,
+  phase,
+  placingPVO,
+}: {
+  bases: BaseCity[];
+  units: ActiveUnit[];
+  pvos: ActivePVO[];
+  explosions: Explosion[];
+  onMapClick: (x: number, y: number) => void;
+  phase: GamePhase;
+  placingPVO: boolean;
+}) {
+  const svgRef = useRef<SVGSVGElement>(null);
 
-  const [placedPVOs, setPlacedPVOs] = useState<PlacedPVO[]>([]);
-  const [selectedPVOType, setSelectedPVOType] = useState<string>("patriot");
-  const [placingPVO, setPlacingPVO] = useState(false);
-
-  const [bases, setBases] = useState<Base[]>(BASES.map(b => ({ ...b })));
-  const [drones, setDrones] = useState<ActiveDrone[]>([]);
-  const [explosions, setExplosions] = useState<Explosion[]>([]);
-  const [projectiles, setProjectiles] = useState<Projectile[]>([]);
-  const [log, setLog] = useState<string[]>(["Оперативный центр активирован", "Настройте атаку и расставьте ПВО"]);
-  const [stats, setStats] = useState({ dronesLost: 0, dronesReached: 0, shotsFired: 0 });
-
-  const tickRef = useRef<ReturnType<typeof setInterval> | null>(null);
-
-  const addLog = useCallback((msg: string) => {
-    const t = new Date().toLocaleTimeString("ru", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
-    setLog(prev => [`[${t}] ${msg}`, ...prev.slice(0, 19)]);
-  }, []);
-
-  const attackDrones = DRONE_TYPES.filter(d => d.side === attackSide || d.side === "both");
-  const defensePVOs = PVO_TYPES.filter(p => p.side === defenseSide || p.side === "both");
-
-  const totalDroneCount = droneOrders.reduce((s, o) => s + o.count, 0);
-
-  const addDroneOrder = (typeId: string, spawnIdx: number, count: number) => {
-    setDroneOrders(prev => {
-      const existing = prev.find(o => o.typeId === typeId && o.spawnIdx === spawnIdx);
-      if (existing) return prev.map(o => o.typeId === typeId && o.spawnIdx === spawnIdx ? { ...o, count: o.count + count } : o);
-      return [...prev, { typeId, spawnIdx, count }];
-    });
-  };
-
-  const handleMapClick = (e: React.MouseEvent<SVGSVGElement>) => {
-    if (!placingPVO || phase !== "setup") return;
-    const svg = e.currentTarget;
-    const rect = svg.getBoundingClientRect();
-    const x = (e.clientX - rect.left) * (MAP_W / rect.width);
-    const y = (e.clientY - rect.top) * (MAP_H / rect.height);
-    setPlacedPVOs(prev => [...prev, { uid: mkuid(), typeId: selectedPVOType, x, y, cooldown: 0, active: true }]);
-    const pt = PVO_TYPES.find(t => t.id === selectedPVOType)!;
-    addLog(`${pt.name} размещена на карте`);
-    setPlacingPVO(false);
-  };
-
-  const startBattle = () => {
-    if (droneOrders.length === 0) { addLog("Добавьте хотя бы один отряд!"); return; }
-    const allDrones: ActiveDrone[] = [];
-    droneOrders.forEach(order => {
-      const dt = DRONE_TYPES.find(d => d.id === order.typeId)!;
-      const sp = SPAWN_POINTS[order.spawnIdx];
-      for (let i = 0; i < order.count; i++) {
-        const target = BASES[i % BASES.length];
-        const jx = sp.x + (Math.random() - 0.5) * 50;
-        const jy = sp.y + (Math.random() - 0.5) * 50;
-        allDrones.push({
-          uid: mkuid(), typeId: order.typeId,
-          x: jx, y: jy, tx: target.x, ty: target.y,
-          hp: dt.hp, maxHp: dt.hp,
-          speed: dt.speed + (Math.random() - 0.5) * 0.15,
-          damage: dt.damage, destroyed: false, reached: false,
-          trail: [], angle: angleTo(jx, jy, target.x, target.y),
-        });
-      }
-    });
-    setBases(BASES.map(b => ({ ...b })));
-    setDrones(allDrones);
-    setExplosions([]); setProjectiles([]);
-    setStats({ dronesLost: 0, dronesReached: 0, shotsFired: 0 });
-    addLog(`▶ Атака начата: ${allDrones.length} единиц в воздухе`);
-    setPhase("battle"); setTab("log");
-  };
-
-  useEffect(() => {
-    if (phase !== "battle") return;
-    tickRef.current = setInterval(() => {
-      setDrones(prev => prev.map(d => {
-        if (d.destroyed || d.reached) return d;
-        const dd = dist(d.x, d.y, d.tx, d.ty);
-        if (dd < 15) return { ...d, reached: true };
-        const nx = d.x + (d.tx - d.x) / dd * d.speed;
-        const ny = d.y + (d.ty - d.y) / dd * d.speed;
-        return { ...d, x: nx, y: ny, angle: angleTo(d.x, d.y, d.tx, d.ty), trail: [...d.trail.slice(-10), { x: d.x, y: d.y }] };
-      }));
-
-      setPlacedPVOs(pvoPrev => {
-        const pvos = pvoPrev.map(p => ({ ...p }));
-        const newExp: Explosion[] = [];
-        const newProj: Projectile[] = [];
-        setDrones(dPrev => {
-          const ds = dPrev.map(d => ({ ...d }));
-          pvos.forEach(pvo => {
-            if (!pvo.active) return;
-            if (pvo.cooldown > 0) { pvo.cooldown--; return; }
-            const pt = PVO_TYPES.find(t => t.id === pvo.typeId)!;
-            for (const d of ds) {
-              if (d.destroyed || d.reached) continue;
-              const dt = DRONE_TYPES.find(t => t.id === d.typeId)!;
-              if (dt.isStealth && !pt.detectsStealth && Math.random() < 0.6) continue;
-              if (dist(pvo.x, pvo.y, d.x, d.y) <= pt.range) {
-                d.hp -= pt.damage;
-                pvo.cooldown = pt.fireRate;
-                newProj.push({ uid: mkuid(), x: pvo.x, y: pvo.y, tx: d.x, ty: d.y, color: pt.color });
-                setStats(s => ({ ...s, shotsFired: s.shotsFired + 1 }));
-                if (d.hp <= 0) {
-                  d.destroyed = true;
-                  newExp.push({ uid: mkuid(), x: d.x, y: d.y });
-                  setStats(s => ({ ...s, dronesLost: s.dronesLost + 1 }));
-                  addLog(`✕ ${dt.name} сбит`);
-                }
-                break;
-              }
-            }
-          });
-          if (newExp.length) {
-            setExplosions(p => [...p, ...newExp]);
-            setTimeout(() => { const ids = newExp.map(e => e.uid); setExplosions(p => p.filter(e => !ids.includes(e.uid))); }, 700);
-          }
-          if (newProj.length) {
-            setProjectiles(p => [...p, ...newProj]);
-            setTimeout(() => { const ids = newProj.map(p => p.uid); setProjectiles(p => p.filter(pr => !ids.includes(pr.uid))); }, 180);
-          }
-          return ds;
-        });
-        return pvos;
-      });
-
-      setDrones(dPrev => {
-        const reached = dPrev.filter(d => d.reached && !d.destroyed);
-        if (reached.length > 0) {
-          setBases(prev => prev.map(b => {
-            const hits = reached.filter(d => dist(d.tx, d.ty, b.x, b.y) < 20);
-            if (hits.length > 0) {
-              const dmg = hits.reduce((s, d) => s + d.damage, 0);
-              const newHp = Math.max(0, b.hp - dmg);
-              if (newHp === 0 && b.hp > 0) addLog(`💥 ${b.label} УНИЧТОЖЕНА`);
-              else addLog(`⚠ ${b.label}: -${dmg} HP`);
-              setStats(s => ({ ...s, dronesReached: s.dronesReached + hits.length }));
-              return { ...b, hp: newHp };
-            }
-            return b;
-          }));
-        }
-        return dPrev.map(d => d.reached ? { ...d, destroyed: true } : d);
-      });
-    }, TICK_MS);
-    return () => clearInterval(tickRef.current!);
-  }, [phase, addLog]);
-
-  useEffect(() => {
-    if (phase !== "battle" || drones.length === 0) return;
-    if (drones.every(d => d.destroyed || d.reached)) {
-      setTimeout(() => { setPhase("result"); addLog("━━ Операция завершена ━━"); }, 900);
-    }
-  }, [drones, phase]);
-
-  const resetGame = () => {
-    setPhase("setup"); setDroneOrders([]); setPlacedPVOs([]);
-    setDrones([]); setExplosions([]); setProjectiles([]);
-    setBases(BASES.map(b => ({ ...b }))); setPlacingPVO(false);
-    setLog(["Система перезапущена"]); setTab("attack");
-    setStats({ dronesLost: 0, dronesReached: 0, shotsFired: 0 });
-  };
-
-  const totalHp = bases.reduce((s, b) => s + b.hp, 0);
-  const totalMax = bases.reduce((s, b) => s + b.maxHp, 0);
-  const integrity = Math.round((totalHp / totalMax) * 100);
-  const activeDrones = drones.filter(d => !d.destroyed && !d.reached).length;
-
-  const RU_FLAG = "🇷🇺"; const US_FLAG = "🇺🇸";
+  function handleClick(e: React.MouseEvent<SVGSVGElement>) {
+    if (!placingPVO) return;
+    const rect = svgRef.current!.getBoundingClientRect();
+    const scaleX = 920 / rect.width;
+    const scaleY = 560 / rect.height;
+    const x = (e.clientX - rect.left) * scaleX;
+    const y = (e.clientY - rect.top) * scaleY;
+    onMapClick(x, y);
+  }
 
   return (
-    <div className="w-screen h-screen flex flex-col overflow-hidden"
-      style={{ background: "#080e08", fontFamily: "'IBM Plex Mono', monospace" }}>
+    <svg
+      ref={svgRef}
+      viewBox="0 0 920 560"
+      style={{
+        width: "100%",
+        height: "100%",
+        cursor: placingPVO ? "crosshair" : "default",
+        background: "#070d07",
+      }}
+      onClick={handleClick}
+    >
+      {/* Grid */}
+      {Array.from({ length: 19 }).map((_, i) => (
+        <line
+          key={`gv${i}`}
+          x1={i * 50}
+          y1={0}
+          x2={i * 50}
+          y2={560}
+          stroke="#1a3a1a"
+          strokeWidth="0.5"
+          opacity="0.15"
+        />
+      ))}
+      {Array.from({ length: 12 }).map((_, i) => (
+        <line
+          key={`gh${i}`}
+          x1={0}
+          y1={i * 50}
+          x2={920}
+          y2={i * 50}
+          stroke="#1a3a1a"
+          strokeWidth="0.5"
+          opacity="0.15"
+        />
+      ))}
 
-      {/* ══ TOP BAR ══ */}
-      <header className="flex items-center justify-between px-4 py-2 border-b shrink-0"
-        style={{ borderColor: "#162416", background: "linear-gradient(90deg, #0a120a 0%, #0d180d 100%)" }}>
-        <div className="flex items-center gap-4">
-          <span className="text-xs font-bold tracking-[0.25em] uppercase" style={{ color: "#4ade80" }}>
-            ОПЕРАЦИЯ РУБЕЖ
-          </span>
-          <span className="text-[10px] px-2 py-0.5 rounded-sm border"
-            style={{ color: "#6b7280", borderColor: "#1a3a1a" }}>
-            {phase === "setup" ? "ПЛАНИРОВАНИЕ" : phase === "battle" ? "⚡ БОЙ" : "ЗАВЕРШЕНО"}
-          </span>
+      {/* Ukraine map body */}
+      <path
+        d="M 120,80 L 180,60 L 260,55 L 340,70 L 420,60 L 500,65 L 580,55 L 650,70 L 720,60 L 790,75 L 840,100 L 860,140 L 850,180 L 820,220 L 800,260 L 820,300 L 810,340 L 780,370 L 740,390 L 700,380 L 660,400 L 620,420 L 580,430 L 540,450 L 500,460 L 460,455 L 420,465 L 380,470 L 340,460 L 300,440 L 260,430 L 220,410 L 180,390 L 150,360 L 130,320 L 110,280 L 100,240 L 105,200 L 110,160 L 115,120 Z"
+        fill="#0d1f0d"
+        stroke="#1a4a1a"
+        strokeWidth="1.5"
+      />
+
+      {/* Dnipro river */}
+      <path
+        d="M 490,65 C 488,110 492,140 485,180 C 478,220 470,250 468,290 C 466,330 475,350 470,390 C 465,420 455,445 450,460"
+        fill="none"
+        stroke="#0f3060"
+        strokeWidth="8"
+        opacity="0.7"
+      />
+      <path
+        d="M 490,65 C 488,110 492,140 485,180 C 478,220 470,250 468,290 C 466,330 475,350 470,390 C 465,420 455,445 450,460"
+        fill="none"
+        stroke="#1a5090"
+        strokeWidth="3"
+        opacity="0.5"
+      />
+
+      {/* Crimea */}
+      <path
+        d="M 430,462 L 460,455 L 500,460 L 520,475 L 510,495 L 490,510 L 460,515 L 435,505 L 415,490 L 420,475 Z"
+        fill="#1a0a0a"
+        stroke="#4a1a1a"
+        strokeWidth="1.5"
+      />
+      <text x="465" y="490" fontSize="7" fill="#6b2a2a" fontFamily="IBM Plex Mono" textAnchor="middle">
+        КРИМ
+      </text>
+
+      {/* Spawn point labels */}
+      {SPAWN_POINTS.map((sp) => {
+        const isRu = sp.side === "ru";
+        return (
+          <g key={sp.id}>
+            <circle
+              cx={sp.x}
+              cy={sp.y}
+              r={6}
+              fill={isRu ? "#ef444440" : "#3b82f640"}
+              stroke={isRu ? "#ef4444" : "#3b82f6"}
+              strokeWidth="1"
+            />
+            <text
+              x={sp.x}
+              y={sp.y - 10}
+              fontSize="6"
+              fill={isRu ? "#ef4444" : "#3b82f6"}
+              fontFamily="IBM Plex Mono"
+              textAnchor="middle"
+              opacity="0.8"
+            >
+              {sp.label}
+            </text>
+          </g>
+        );
+      })}
+
+      {/* City bases */}
+      {bases.map((b) => {
+        const pct = b.hp / b.maxHp;
+        const col = pct > 0.6 ? "#4ade80" : pct > 0.3 ? "#facc15" : "#ef4444";
+        return (
+          <g key={b.id}>
+            <circle cx={b.x} cy={b.y} r={10} fill="#0a1a0a" stroke={col} strokeWidth="1.5" />
+            <circle cx={b.x} cy={b.y} r={5} fill={col} opacity="0.7" />
+            <text
+              x={b.x}
+              y={b.y - 14}
+              fontSize="8"
+              fill={col}
+              fontFamily="IBM Plex Mono"
+              textAnchor="middle"
+            >
+              {b.label}
+            </text>
+            <text
+              x={b.x}
+              y={b.y + 20}
+              fontSize="6"
+              fill={col}
+              fontFamily="IBM Plex Mono"
+              textAnchor="middle"
+            >
+              {b.hp}/{b.maxHp}
+            </text>
+          </g>
+        );
+      })}
+
+      {/* PVO units on map */}
+      {pvos.map((pvo) => {
+        if (pvo.dead) return null;
+        const isRu = pvo.side === "ru";
+        return (
+          <g key={pvo.uid}>
+            <circle
+              cx={pvo.x}
+              cy={pvo.y}
+              r={pvo.range}
+              fill={pvo.color + "15"}
+              stroke={pvo.color + "50"}
+              strokeWidth="1"
+              strokeDasharray="4 3"
+            />
+            <circle cx={pvo.x} cy={pvo.y} r={7} fill="#0a1a0a" stroke={pvo.color} strokeWidth="1.5" />
+            <text
+              x={pvo.x}
+              y={pvo.y + 2}
+              fontSize="6"
+              fill={pvo.color}
+              textAnchor="middle"
+              fontFamily="IBM Plex Mono"
+            >
+              {isRu ? "Д" : "П"}
+            </text>
+          </g>
+        );
+      })}
+
+      {/* Active weapon units */}
+      {units.map((u) => {
+        if (u.dead || u.intercepted) return null;
+        const isRu = u.side === "ru";
+        const angle =
+          (Math.atan2(u.targetY - u.y, u.targetX - u.x) * 180) / Math.PI + 90;
+        return (
+          <g
+            key={u.uid}
+            transform={`translate(${u.x},${u.y}) rotate(${angle})`}
+          >
+            <polygon
+              points="0,-7 4,5 0,2 -4,5"
+              fill={u.color}
+              opacity="0.9"
+              stroke={isRu ? "#ff000040" : "#0000ff40"}
+              strokeWidth="0.5"
+            />
+          </g>
+        );
+      })}
+
+      {/* Explosions */}
+      {explosions.map((ex) => {
+        const opacity = Math.max(0, 1 - ex.t / 40);
+        const r = 5 + ex.t * 0.8;
+        return (
+          <g key={ex.uid}>
+            <circle cx={ex.x} cy={ex.y} r={r} fill="#ff6600" opacity={opacity * 0.6} />
+            <circle cx={ex.x} cy={ex.y} r={r * 0.5} fill="#ffcc00" opacity={opacity} />
+          </g>
+        );
+      })}
+
+      {/* Placing PVO hint */}
+      {placingPVO && phase === "setup" && (
+        <text
+          x="460"
+          y="30"
+          fontSize="10"
+          fill="#facc15"
+          textAnchor="middle"
+          fontFamily="IBM Plex Mono"
+        >
+          КЛИКНИТЕ НА КАРТЕ ДЛЯ РАЗМЕЩЕНИЯ ПВО
+        </text>
+      )}
+
+      {/* Title */}
+      <text
+        x="460"
+        y="14"
+        fontSize="9"
+        fill="#1a4a1a"
+        textAnchor="middle"
+        fontFamily="IBM Plex Mono"
+        letterSpacing="2"
+      >
+        ТЕАТР БОЕВЫХ ДЕЙСТВИЙ
+      </text>
+    </svg>
+  );
+}
+
+// ─────────────────────────────────────────────
+// HELPERS
+// ─────────────────────────────────────────────
+function uid(): string {
+  return Math.random().toString(36).slice(2, 10);
+}
+
+function dist(ax: number, ay: number, bx: number, by: number): number {
+  return Math.sqrt((ax - bx) ** 2 + (ay - by) ** 2);
+}
+
+function getWeaponDef(id: string): WeaponDef | undefined {
+  return RU_WEAPONS.find((w) => w.id === id);
+}
+
+function getPVODef(id: string, side: "ru" | "ua"): PVODef | undefined {
+  const list = side === "ua" ? UA_PVO : RU_PVO;
+  return list.find((p) => p.id === id);
+}
+
+function getSpawnPoint(dir: SpawnDir): SpawnPoint {
+  return SPAWN_POINTS.find((sp) => sp.id === dir)!;
+}
+
+// ─────────────────────────────────────────────
+// SUB-COMPONENTS
+// ─────────────────────────────────────────────
+function Badge({ label, variant }: { label: string; variant: "stealth" | "ballistic" | "hyper" | "antiball" | "cruise" }) {
+  const colors: Record<string, string> = {
+    stealth: "#7c3aed",
+    ballistic: "#dc2626",
+    hyper: "#6d28d9",
+    antiball: "#1d4ed8",
+    cruise: "#0891b2",
+  };
+  return (
+    <span
+      style={{
+        background: colors[variant] + "33",
+        border: `1px solid ${colors[variant]}`,
+        color: colors[variant],
+        fontSize: 8,
+        padding: "1px 4px",
+        borderRadius: 2,
+        fontFamily: "IBM Plex Mono",
+        marginRight: 2,
+        display: "inline-block",
+        lineHeight: "14px",
+      }}
+    >
+      {label}
+    </span>
+  );
+}
+
+function WeaponCard({
+  w,
+  selected,
+  onSelect,
+}: {
+  w: WeaponDef;
+  selected: boolean;
+  onSelect: () => void;
+}) {
+  return (
+    <div
+      onClick={onSelect}
+      style={{
+        background: selected ? w.color + "22" : "#0d160d",
+        border: `1px solid ${selected ? w.color : "#1a3a1a"}`,
+        borderRadius: 4,
+        padding: "6px 8px",
+        cursor: "pointer",
+        marginBottom: 4,
+        display: "flex",
+        alignItems: "center",
+        gap: 8,
+        transition: "all 0.15s",
+      }}
+    >
+      <WeaponIcon id={w.id} color={w.color} size={24} />
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div
+          style={{
+            color: selected ? w.color : "#c8d4c8",
+            fontSize: 9,
+            fontFamily: "IBM Plex Mono",
+            fontWeight: selected ? "bold" : "normal",
+            whiteSpace: "nowrap",
+            overflow: "hidden",
+            textOverflow: "ellipsis",
+          }}
+        >
+          {w.name}
         </div>
-        <div className="flex items-center gap-5">
-          {phase === "battle" && <>
-            <TopStat label="В ВОЗДУХЕ" v={activeDrones} c="#f97316" />
-            <TopStat label="СБИТО" v={stats.dronesLost} c="#4ade80" />
-            <TopStat label="ПРОРВАЛИСЬ" v={stats.dronesReached} c="#ef4444" />
-            <TopStat label="ЦЕЛОСТНОСТЬ" v={`${integrity}%`}
-              c={integrity > 60 ? "#4ade80" : integrity > 30 ? "#facc15" : "#ef4444"} />
-          </>}
+        <div style={{ display: "flex", gap: 4, marginTop: 2, flexWrap: "wrap" }}>
+          {w.stealth && <Badge label="СТЕЛС" variant="stealth" />}
+          {w.ballistic && <Badge label="БАЛЛИСТ" variant="ballistic" />}
+          {w.hypersonic && <Badge label="ГИПЕР" variant="hyper" />}
+          {w.cruise && <Badge label="КРЫЛАТ" variant="cruise" />}
         </div>
-      </header>
-
-      {/* ══ MAIN ══ */}
-      <div className="flex flex-1 min-h-0">
-
-        {/* MAP */}
-        <div className={`flex-1 relative overflow-hidden ${placingPVO ? "cursor-crosshair" : ""}`}>
-          <svg width="100%" height="100%" viewBox={`0 0 ${MAP_W} ${MAP_H}`}
-            preserveAspectRatio="xMidYMid meet" onClick={handleMapClick}>
-            <defs>
-              <radialGradient id="baseGlow"><stop offset="0%" stopColor="#4ade80" stopOpacity="0.25" /><stop offset="100%" stopColor="#4ade80" stopOpacity="0" /></radialGradient>
-              <radialGradient id="explosionGrad"><stop offset="0%" stopColor="white" stopOpacity="1" /><stop offset="40%" stopColor="#fb923c" stopOpacity="0.9" /><stop offset="100%" stopColor="#dc2626" stopOpacity="0" /></radialGradient>
-              <filter id="glow"><feGaussianBlur stdDeviation="3" result="blur" /><feMerge><feMergeNode in="blur" /><feMergeNode in="SourceGraphic" /></feMerge></filter>
-            </defs>
-
-            <RealisticMap />
-
-            {/* PVO ranges */}
-            {placedPVOs.map(pvo => {
-              const pt = PVO_TYPES.find(t => t.id === pvo.typeId)!;
-              return (
-                <circle key={`r${pvo.uid}`} cx={pvo.x} cy={pvo.y} r={pt.range}
-                  fill={pt.color + "08"} stroke={pt.color} strokeWidth={0.6}
-                  strokeDasharray="5 8" opacity={0.35} />
-              );
-            })}
-
-            {/* Bases */}
-            {bases.map(b => (
-              <g key={b.id}>
-                <circle cx={b.x} cy={b.y} r={50} fill="url(#baseGlow)" />
-                <circle cx={b.x} cy={b.y} r={20} fill={b.hp > 0 ? "#0d1a0d" : "#1a0808"}
-                  stroke={b.hp > 0 ? "#4ade80" : "#ef4444"} strokeWidth={1.5} filter="url(#glow)" />
-                <text x={b.x} y={b.y + 6} textAnchor="middle" fontSize={12}
-                  fill={b.hp > 0 ? "#4ade80" : "#ef4444"}>{b.icon}</text>
-                <text x={b.x} y={b.y + 34} textAnchor="middle" fontSize={8}
-                  fill={b.hp > 0 ? "#86efac" : "#fca5a5"} letterSpacing="0.05em">{b.label}</text>
-                <rect x={b.x - 24} y={b.y + 38} width={48} height={4} fill="#111" rx={2} />
-                <rect x={b.x - 24} y={b.y + 38} width={48 * (b.hp / b.maxHp)} height={4}
-                  fill={b.hp / b.maxHp > 0.5 ? "#4ade80" : b.hp / b.maxHp > 0.2 ? "#facc15" : "#ef4444"} rx={2} />
-              </g>
-            ))}
-
-            {/* PVO units */}
-            {placedPVOs.map(pvo => {
-              const pt = PVO_TYPES.find(t => t.id === pvo.typeId)!;
-              return (
-                <g key={pvo.uid} style={{ cursor: phase === "setup" ? "pointer" : "default" }}
-                  onClick={(e) => { e.stopPropagation(); if (phase === "setup") setPlacedPVOs(p => p.filter(x => x.uid !== pvo.uid)); }}>
-                  <circle cx={pvo.x} cy={pvo.y} r={18} fill="#0a1a0a"
-                    stroke={pt.color} strokeWidth={1.5} />
-                  <g transform={`translate(${pvo.x - 9},${pvo.y - 9})`}>
-                    <PVOIcon type={pvo.typeId} color={pt.color} size={18} />
-                  </g>
-                  {phase === "battle" && pvo.typeId === "patriot" || pvo.typeId === "s400" || pvo.typeId === "s300" ? (
-                    <line x1={pvo.x} y1={pvo.y} x2={pvo.x + 14} y2={pvo.y}
-                      stroke={pt.color} strokeWidth={1.5} opacity={0.7}
-                      style={{ transformOrigin: `${pvo.x}px ${pvo.y}px` }}
-                      className="animate-pvo-rotate" />
-                  ) : null}
-                  {phase === "setup" && (
-                    <circle cx={pvo.x + 13} cy={pvo.y - 13} r={7}
-                      fill="#dc2626" opacity={0.9} />
-                  )}
-                  {phase === "setup" && (
-                    <text x={pvo.x + 13} y={pvo.y - 10} textAnchor="middle"
-                      fontSize={9} fill="white" fontWeight="bold">×</text>
-                  )}
-                </g>
-              );
-            })}
-
-            {/* Drone trails */}
-            {drones.filter(d => !d.destroyed && d.trail.length > 2).map(d => {
-              const dt = DRONE_TYPES.find(t => t.id === d.typeId)!;
-              return (
-                <polyline key={`t${d.uid}`} points={d.trail.map(p => `${p.x},${p.y}`).join(" ")}
-                  fill="none" stroke={dt.color} strokeWidth={0.7} opacity={0.25} />
-              );
-            })}
-
-            {/* Drones */}
-            {drones.filter(d => !d.destroyed && !d.reached).map(d => {
-              const dt = DRONE_TYPES.find(t => t.id === d.typeId)!;
-              return (
-                <g key={d.uid} transform={`translate(${d.x},${d.y}) rotate(${d.angle + 90})`}>
-                  <g transform="translate(-9,-9)">
-                    <DroneIcon type={d.typeId} color={dt.color} size={18} />
-                  </g>
-                </g>
-              );
-            })}
-
-            {/* Projectiles */}
-            {projectiles.map(p => (
-              <g key={p.uid}>
-                <line x1={p.x} y1={p.y} x2={p.tx} y2={p.ty}
-                  stroke={p.color} strokeWidth={1} opacity={0.5} />
-                <circle cx={(p.x + p.tx) / 2} cy={(p.y + p.ty) / 2}
-                  r={2.5} fill={p.color} opacity={0.9} />
-              </g>
-            ))}
-
-            {/* Explosions */}
-            {explosions.map(ex => (
-              <g key={ex.uid} className="animate-explosion"
-                style={{ transformOrigin: `${ex.x}px ${ex.y}px` }}>
-                <circle cx={ex.x} cy={ex.y} r={22} fill="url(#explosionGrad)" />
-                <circle cx={ex.x} cy={ex.y} r={10} fill="#fbbf24" opacity={0.8} />
-              </g>
-            ))}
-
-            {/* Setup mode: spawn orders */}
-            {phase === "setup" && tab === "attack" && droneOrders.map((order, i) => {
-              const sp = SPAWN_POINTS[order.spawnIdx];
-              const dt = DRONE_TYPES.find(d => d.id === order.typeId)!;
-              return (
-                <g key={i}>
-                  <circle cx={sp.x} cy={sp.y} r={16} fill={dt.color + "22"} stroke={dt.color} strokeWidth={1.5} />
-                  <text x={sp.x} y={sp.y + 5} textAnchor="middle" fontSize={11}
-                    fill={dt.color} fontWeight="bold">{order.count}</text>
-                </g>
-              );
-            })}
-
-            {/* Placing hint */}
-            {placingPVO && (
-              <g>
-                <rect x={MAP_W / 2 - 130} y={MAP_H / 2 - 14} width={260} height={28} rx={4}
-                  fill="#0d1a0d" stroke="#facc15" strokeWidth={1} opacity={0.9} />
-                <text x={MAP_W / 2} y={MAP_H / 2 + 5} textAnchor="middle" fontSize={11}
-                  fill="#facc15">Кликните на карте для установки ПВО</text>
-              </g>
-            )}
-          </svg>
+        <div
+          style={{
+            color: "#4a6a4a",
+            fontSize: 8,
+            fontFamily: "IBM Plex Mono",
+            marginTop: 2,
+          }}
+        >
+          HP:{w.hp} СКР:{w.speed} УРН:{w.dmg}
         </div>
-
-        {/* ══ PANEL ══ */}
-        <aside className="w-80 flex flex-col overflow-hidden shrink-0 border-l"
-          style={{ borderColor: "#162416", background: "linear-gradient(180deg, #0a120a 0%, #080e08 100%)" }}>
-
-          {/* Tabs */}
-          <div className="flex shrink-0 border-b" style={{ borderColor: "#162416" }}>
-            {(["attack", "defense", "log"] as PanelTab[]).map(t => (
-              <button key={t} onClick={() => setTab(t)}
-                className="flex-1 py-2.5 text-[10px] uppercase tracking-[0.12em] transition-all relative"
-                style={{
-                  color: tab === t ? "#4ade80" : "#374151",
-                  background: tab === t ? "#0d1a0d" : "transparent"
-                }}>
-                {t === "attack" ? "⚔ Атака" : t === "defense" ? "🛡 ПВО" : "📋 Журнал"}
-                {tab === t && <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-green-400" />}
-              </button>
-            ))}
-          </div>
-
-          <div className="flex-1 overflow-y-auto min-h-0 scrollbar-thin"
-            style={{ scrollbarColor: "#1a3a1a transparent" }}>
-
-            {/* ── ATTACK ── */}
-            {tab === "attack" && (
-              <div className="p-3 space-y-3">
-                {/* Side selector */}
-                <div className="flex gap-1.5">
-                  {(["ru", "us"] as Side[]).map(s => (
-                    <button key={s} onClick={() => { setAttackSide(s); setSelectedDroneType(DRONE_TYPES.find(d => d.side === s)!.id); }}
-                      className="flex-1 py-2 text-xs font-semibold rounded-sm border transition-all"
-                      style={{
-                        borderColor: attackSide === s ? (s === "ru" ? "#ef4444" : "#3b82f6") : "#1a3a1a",
-                        background: attackSide === s ? (s === "ru" ? "#ef444415" : "#3b82f615") : "transparent",
-                        color: attackSide === s ? (s === "ru" ? "#fca5a5" : "#93c5fd") : "#4b5563"
-                      }}>
-                      {s === "ru" ? `${RU_FLAG} Россия` : `${US_FLAG} США/НАТО`}
-                    </button>
-                  ))}
-                </div>
-
-                {/* Total count */}
-                {totalDroneCount > 0 && (
-                  <div className="px-3 py-1.5 rounded-sm border text-center text-[10px]"
-                    style={{ borderColor: "#1a3a1a", color: "#6b7280" }}>
-                    В атаке: <span style={{ color: "#f97316", fontWeight: 600 }}>{totalDroneCount}</span> единиц
-                  </div>
-                )}
-
-                {/* Drone cards */}
-                <div className="space-y-1.5">
-                  {attackDrones.map(dt => (
-                    <button key={dt.id} onClick={() => setSelectedDroneType(dt.id)}
-                      className="w-full text-left rounded-sm border transition-all overflow-hidden"
-                      style={{
-                        borderColor: selectedDroneType === dt.id ? dt.color : "#162416",
-                        background: selectedDroneType === dt.id ? dt.color + "12" : "#0d130d",
-                      }}>
-                      <div className="flex items-center gap-2.5 px-2.5 py-2">
-                        <div className="shrink-0 w-8 h-8 flex items-center justify-center rounded-sm"
-                          style={{ background: dt.color + "18" }}>
-                          <DroneIcon type={dt.id} color={dt.color} size={22} />
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center justify-between gap-1">
-                            <span className="text-[11px] font-semibold truncate" style={{ color: selectedDroneType === dt.id ? dt.color : "#d1d5db" }}>
-                              {dt.name}
-                            </span>
-                            <div className="flex gap-1 shrink-0">
-                              {dt.isStealth && <span className="text-[8px] px-1 py-0.5 rounded-sm bg-purple-900/40 text-purple-300 border border-purple-800/40">СТЕЛС</span>}
-                              {dt.isBallistic && <span className="text-[8px] px-1 py-0.5 rounded-sm bg-red-900/40 text-red-300 border border-red-800/40">БАЛЛИСТ.</span>}
-                            </div>
-                          </div>
-                          <div className="text-[9px] truncate mt-0.5" style={{ color: "#4b5563" }}>{dt.desc}</div>
-                          <div className="flex gap-2.5 mt-1">
-                            <span className="text-[9px]" style={{ color: "#6b7280" }}>❤ {dt.hp}</span>
-                            <span className="text-[9px]" style={{ color: "#6b7280" }}>⚡ {dt.speed.toFixed(1)}</span>
-                            <span className="text-[9px]" style={{ color: "#6b7280" }}>💥 {dt.damage}</span>
-                          </div>
-                        </div>
-                      </div>
-                    </button>
-                  ))}
-                </div>
-
-                {/* Spawn grid */}
-                <div>
-                  <div className="text-[10px] uppercase tracking-widest mb-2" style={{ color: "#4b5563" }}>Направление атаки</div>
-                  <div className="grid grid-cols-4 gap-1">
-                    {SPAWN_POINTS.map((sp, i) => (
-                      <button key={i} onClick={() => setSelectedSpawn(i)}
-                        className="py-2 rounded-sm border text-[10px] font-semibold transition-all"
-                        style={{
-                          borderColor: selectedSpawn === i ? "#ef4444" : "#162416",
-                          background: selectedSpawn === i ? "#ef444418" : "#0d130d",
-                          color: selectedSpawn === i ? "#fca5a5" : "#374151",
-                        }}>
-                        {sp.label}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Count buttons */}
-                <div>
-                  <div className="text-[10px] uppercase tracking-widest mb-2" style={{ color: "#4b5563" }}>Добавить в отряд</div>
-                  <div className="grid grid-cols-4 gap-1">
-                    {[1, 5, 10, 25].map(n => (
-                      <button key={n} onClick={() => addDroneOrder(selectedDroneType, selectedSpawn, n)}
-                        className="py-2 rounded-sm border text-[11px] font-bold transition-all"
-                        style={{ borderColor: "#1a4a1a", background: "#0d1a0d", color: "#4ade80" }}
-                        onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = "#4ade8018"; }}
-                        onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = "#0d1a0d"; }}>
-                        +{n}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Orders list */}
-                {droneOrders.length > 0 && (
-                  <div>
-                    <div className="text-[10px] uppercase tracking-widest mb-2" style={{ color: "#4b5563" }}>Состав атаки</div>
-                    <div className="space-y-1">
-                      {droneOrders.map((o, i) => {
-                        const dt = DRONE_TYPES.find(d => d.id === o.typeId)!;
-                        return (
-                          <div key={i} className="flex items-center gap-2 px-2.5 py-1.5 rounded-sm border"
-                            style={{ background: dt.color + "0e", borderColor: dt.color + "30" }}>
-                            <DroneIcon type={dt.id} color={dt.color} size={14} />
-                            <span className="text-[10px] flex-1" style={{ color: "#d1d5db" }}>
-                              {dt.name} × <span style={{ color: dt.color, fontWeight: 600 }}>{o.count}</span>
-                            </span>
-                            <span className="text-[9px]" style={{ color: "#4b5563" }}>{SPAWN_POINTS[o.spawnIdx].label}</span>
-                            <button onClick={() => setDroneOrders(prev => prev.filter((_, idx) => idx !== i))}
-                              className="text-[10px] ml-1" style={{ color: "#ef4444" }}>✕</button>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </div>
-                )}
-
-                {phase === "setup" && (
-                  <button onClick={startBattle} disabled={droneOrders.length === 0}
-                    className="w-full py-3 text-xs font-bold uppercase tracking-[0.15em] rounded-sm border transition-all disabled:opacity-25"
-                    style={{ borderColor: "#ef4444", color: "#ef4444", background: "transparent" }}
-                    onMouseEnter={e => { if (!droneOrders.length) return; (e.currentTarget as HTMLButtonElement).style.background = "#ef4444"; (e.currentTarget as HTMLButtonElement).style.color = "#fff"; }}
-                    onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = "transparent"; (e.currentTarget as HTMLButtonElement).style.color = "#ef4444"; }}>
-                    ▶ НАЧАТЬ АТАКУ
-                  </button>
-                )}
-              </div>
-            )}
-
-            {/* ── DEFENSE ── */}
-            {tab === "defense" && (
-              <div className="p-3 space-y-3">
-                {/* Side */}
-                <div className="flex gap-1.5">
-                  {(["ru", "us"] as Side[]).map(s => (
-                    <button key={s} onClick={() => { setDefenseSide(s); setSelectedPVOType(PVO_TYPES.find(p => p.side === s)!.id); }}
-                      className="flex-1 py-2 text-xs font-semibold rounded-sm border transition-all"
-                      style={{
-                        borderColor: defenseSide === s ? (s === "ru" ? "#ef4444" : "#3b82f6") : "#1a3a1a",
-                        background: defenseSide === s ? (s === "ru" ? "#ef444415" : "#3b82f615") : "transparent",
-                        color: defenseSide === s ? (s === "ru" ? "#fca5a5" : "#93c5fd") : "#4b5563"
-                      }}>
-                      {s === "ru" ? `${RU_FLAG} Россия` : `${US_FLAG} США/НАТО`}
-                    </button>
-                  ))}
-                </div>
-
-                <div className="text-[10px] uppercase tracking-widest mb-1" style={{ color: "#4b5563" }}>Выбор комплекса</div>
-                <div className="space-y-1.5">
-                  {defensePVOs.map(pt => (
-                    <button key={pt.id} onClick={() => setSelectedPVOType(pt.id)}
-                      className="w-full text-left rounded-sm border transition-all"
-                      style={{
-                        borderColor: selectedPVOType === pt.id ? pt.color : "#162416",
-                        background: selectedPVOType === pt.id ? pt.color + "12" : "#0d130d",
-                      }}>
-                      <div className="flex items-center gap-2.5 px-2.5 py-2">
-                        <div className="shrink-0 w-8 h-8 flex items-center justify-center rounded-sm"
-                          style={{ background: pt.color + "18" }}>
-                          <PVOIcon type={pt.id} color={pt.color} size={20} />
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center justify-between gap-1">
-                            <span className="text-[11px] font-semibold" style={{ color: selectedPVOType === pt.id ? pt.color : "#d1d5db" }}>
-                              {pt.name}
-                            </span>
-                            {pt.detectsStealth && (
-                              <span className="text-[8px] px-1 py-0.5 rounded-sm bg-cyan-900/40 text-cyan-300 border border-cyan-800/40">СТЕЛС</span>
-                            )}
-                          </div>
-                          <div className="text-[9px] mt-0.5 truncate" style={{ color: "#4b5563" }}>{pt.desc}</div>
-                          <div className="flex gap-2.5 mt-1">
-                            <span className="text-[9px]" style={{ color: "#6b7280" }}>📡 {pt.range}м</span>
-                            <span className="text-[9px]" style={{ color: "#6b7280" }}>⚡ {pt.fireRate}тик</span>
-                            <span className="text-[9px]" style={{ color: "#6b7280" }}>💥 {pt.damage}</span>
-                          </div>
-                        </div>
-                      </div>
-                    </button>
-                  ))}
-                </div>
-
-                {phase === "setup" && (
-                  <button onClick={() => setPlacingPVO(p => !p)}
-                    className="w-full py-2.5 text-xs font-semibold rounded-sm border transition-all"
-                    style={{
-                      borderColor: placingPVO ? "#facc15" : "#4ade80",
-                      color: placingPVO ? "#facc15" : "#4ade80",
-                      background: placingPVO ? "#facc1512" : "#4ade8008",
-                    }}>
-                    {placingPVO ? "✕ Отмена" : "+ Разместить на карте"}
-                  </button>
-                )}
-
-                {/* Placed list */}
-                {placedPVOs.length > 0 && (
-                  <div>
-                    <div className="text-[10px] uppercase tracking-widest mb-2" style={{ color: "#4b5563" }}>
-                      Развёрнуто ({placedPVOs.length})
-                    </div>
-                    <div className="space-y-1">
-                      {placedPVOs.map(pvo => {
-                        const pt = PVO_TYPES.find(t => t.id === pvo.typeId)!;
-                        return (
-                          <div key={pvo.uid} className="flex items-center gap-2 px-2.5 py-1.5 rounded-sm border"
-                            style={{ background: pt.color + "0e", borderColor: pt.color + "30" }}>
-                            <PVOIcon type={pvo.typeId} color={pt.color} size={14} />
-                            <span className="text-[10px] flex-1" style={{ color: "#d1d5db" }}>{pt.name}</span>
-                            {phase === "setup" && (
-                              <button onClick={() => setPlacedPVOs(p => p.filter(x => x.uid !== pvo.uid))}
-                                style={{ color: "#ef4444", fontSize: 10 }}>✕</button>
-                            )}
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </div>
-                )}
-
-                {/* Base status */}
-                <div>
-                  <div className="text-[10px] uppercase tracking-widest mb-2" style={{ color: "#4b5563" }}>Объекты обороны</div>
-                  {bases.map(b => (
-                    <div key={b.id} className="mb-2">
-                      <div className="flex justify-between mb-1">
-                        <span className="text-[10px]" style={{ color: "#d1d5db" }}>{b.icon} {b.label}</span>
-                        <span className="text-[10px] font-semibold"
-                          style={{ color: b.hp / b.maxHp > 0.5 ? "#4ade80" : b.hp / b.maxHp > 0.2 ? "#facc15" : "#ef4444" }}>
-                          {b.hp}/{b.maxHp}
-                        </span>
-                      </div>
-                      <div className="h-1.5 rounded-full" style={{ background: "#111" }}>
-                        <div className="h-full rounded-full transition-all duration-200"
-                          style={{
-                            width: `${(b.hp / b.maxHp) * 100}%`,
-                            background: b.hp / b.maxHp > 0.5 ? "#4ade80" : b.hp / b.maxHp > 0.2 ? "#facc15" : "#ef4444"
-                          }} />
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* ── LOG ── */}
-            {tab === "log" && (
-              <div className="p-3">
-                <div className="text-[10px] uppercase tracking-widest mb-3" style={{ color: "#4b5563" }}>Боевой журнал</div>
-                <div className="space-y-1">
-                  {log.map((entry, i) => (
-                    <div key={i} className="text-[10px] leading-relaxed"
-                      style={{ color: i === 0 ? "#e5e7eb" : "#374151" }}>
-                      {entry}
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-          </div>
-
-          {/* Result panel */}
-          {phase === "result" && (
-            <div className="border-t p-4 space-y-3 shrink-0" style={{ borderColor: "#162416" }}>
-              <div className="text-[10px] uppercase tracking-widest" style={{ color: "#6b7280" }}>
-                Итог операции
-              </div>
-              <div className="grid grid-cols-2 gap-2">
-                <ResStat label="Сбито" v={stats.dronesLost} c="#4ade80" />
-                <ResStat label="Прорвалось" v={stats.dronesReached} c="#ef4444" />
-                <ResStat label="Выстрелов" v={stats.shotsFired} c="#60a5fa" />
-                <ResStat label="Целостность" v={`${integrity}%`} c={integrity > 60 ? "#4ade80" : integrity > 30 ? "#facc15" : "#ef4444"} />
-              </div>
-              <button onClick={resetGame}
-                className="w-full py-2.5 text-xs font-bold uppercase tracking-widest rounded-sm border transition-all"
-                style={{ borderColor: "#4ade80", color: "#4ade80", background: "transparent" }}
-                onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = "#4ade80"; (e.currentTarget as HTMLButtonElement).style.color = "#000"; }}
-                onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = "transparent"; (e.currentTarget as HTMLButtonElement).style.color = "#4ade80"; }}>
-                ↺ НОВАЯ ОПЕРАЦИЯ
-              </button>
-            </div>
-          )}
-        </aside>
       </div>
     </div>
   );
 }
 
-function TopStat({ label, v, c }: { label: string; v: string | number; c: string }) {
+function PVOCard({
+  p,
+  selected,
+  onSelect,
+  side,
+}: {
+  p: PVODef;
+  selected: boolean;
+  onSelect: () => void;
+  side: "ru" | "ua";
+}) {
   return (
-    <div className="flex flex-col items-end">
-      <span className="text-[8px] uppercase tracking-widest" style={{ color: "#374151" }}>{label}</span>
-      <span className="text-sm font-bold" style={{ color: c }}>{v}</span>
+    <div
+      onClick={onSelect}
+      style={{
+        background: selected ? p.color + "22" : "#0d160d",
+        border: `1px solid ${selected ? p.color : "#1a3a1a"}`,
+        borderRadius: 4,
+        padding: "6px 8px",
+        cursor: "pointer",
+        marginBottom: 4,
+        display: "flex",
+        alignItems: "center",
+        gap: 8,
+        transition: "all 0.15s",
+      }}
+    >
+      <PVOIcon id={p.id} color={p.color} size={24} />
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div
+          style={{
+            color: selected ? p.color : "#c8d4c8",
+            fontSize: 9,
+            fontFamily: "IBM Plex Mono",
+            fontWeight: selected ? "bold" : "normal",
+            whiteSpace: "nowrap",
+            overflow: "hidden",
+            textOverflow: "ellipsis",
+          }}
+        >
+          {p.name}
+        </div>
+        <div style={{ display: "flex", gap: 4, marginTop: 2, flexWrap: "wrap" }}>
+          {p.detectsStealth && <Badge label="СТЕЛС" variant="stealth" />}
+          {p.antiballistic && <Badge label="ЗПРР" variant="antiball" />}
+        </div>
+        <div
+          style={{
+            color: "#4a6a4a",
+            fontSize: 8,
+            fontFamily: "IBM Plex Mono",
+            marginTop: 2,
+          }}
+        >
+          РД:{p.range} СКС:{p.fireRate} УРН:{p.dmg}
+        </div>
+      </div>
+      <div
+        style={{
+          fontSize: 7,
+          color: side === "ru" ? "#ef4444" : "#3b82f6",
+          fontFamily: "IBM Plex Mono",
+          textAlign: "right",
+          lineHeight: "12px",
+        }}
+      >
+        {side === "ru" ? "РУС" : "НАТ"}
+        <br />
+        ПВО
+      </div>
     </div>
   );
 }
 
-function ResStat({ label, v, c }: { label: string; v: string | number; c: string }) {
+function SpawnBtn({
+  sp,
+  selected,
+  onSelect,
+  side,
+}: {
+  sp: SpawnPoint;
+  selected: boolean;
+  onSelect: () => void;
+  side: "ru" | "ua";
+}) {
+  const isOwnSide = sp.side === side;
+  if (!isOwnSide) return null;
+  const col = side === "ru" ? "#ef4444" : "#3b82f6";
   return (
-    <div className="px-2.5 py-2 rounded-sm border" style={{ background: "#0d1a0d", borderColor: "#162416" }}>
-      <div className="text-[9px] mb-0.5" style={{ color: "#4b5563" }}>{label}</div>
-      <div className="text-sm font-bold" style={{ color: c }}>{v}</div>
+    <button
+      onClick={onSelect}
+      style={{
+        background: selected ? col + "33" : "#0d160d",
+        border: `1px solid ${selected ? col : "#1a3a1a"}`,
+        borderRadius: 3,
+        padding: "4px 6px",
+        color: selected ? col : "#4a6a4a",
+        fontSize: 8,
+        fontFamily: "IBM Plex Mono",
+        cursor: "pointer",
+        margin: 2,
+        minWidth: 60,
+        transition: "all 0.12s",
+      }}
+    >
+      {sp.label}
+    </button>
+  );
+}
+
+function OrderRow({ o, onRemove }: { o: OrderEntry; onRemove: () => void }) {
+  const wdef = o.isPVO
+    ? (o.side === "ua" ? UA_PVO : RU_PVO).find((p) => p.id === o.weaponId)
+    : RU_WEAPONS.find((w) => w.id === o.weaponId);
+  if (!wdef) return null;
+  const col = o.side === "ru" ? "#f97316" : "#3b82f6";
+  const spLabel = o.isPVO ? "КАРТА" : (SPAWN_POINTS.find((s) => s.id === o.spawnDir)?.label ?? "—");
+
+  return (
+    <div
+      style={{
+        display: "flex",
+        alignItems: "center",
+        gap: 6,
+        padding: "3px 6px",
+        borderBottom: "1px solid #1a2a1a",
+        fontSize: 8,
+        fontFamily: "IBM Plex Mono",
+        color: "#8aaa8a",
+      }}
+    >
+      {o.isPVO ? (
+        <PVOIcon id={o.weaponId} color={col} size={16} />
+      ) : (
+        <WeaponIcon id={o.weaponId} color={col} size={16} />
+      )}
+      <span style={{ flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+        {wdef.name}
+      </span>
+      <span style={{ color: col }}>×{o.count}</span>
+      <span style={{ color: "#4a5a4a" }}>{spLabel}</span>
+      <button
+        onClick={onRemove}
+        style={{
+          background: "none",
+          border: "none",
+          color: "#ef4444",
+          cursor: "pointer",
+          fontSize: 10,
+          padding: "0 2px",
+          lineHeight: 1,
+        }}
+      >
+        ×
+      </button>
+    </div>
+  );
+}
+
+function LogLine({ entry }: { entry: LogEntry }) {
+  const colors: Record<string, string> = {
+    intercept: "#4ade80",
+    hit: "#f97316",
+    destroy: "#ef4444",
+    info: "#6b8a6b",
+  };
+  return (
+    <div
+      style={{
+        fontSize: 8,
+        fontFamily: "IBM Plex Mono",
+        color: colors[entry.kind],
+        padding: "1px 4px",
+        borderBottom: "1px solid #0f1f0f",
+      }}
+    >
+      [{entry.t}с] {entry.msg}
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────
+// MAIN COMPONENT
+// ─────────────────────────────────────────────
+export default function Index() {
+  const [phase, setPhase] = useState<GamePhase>("setup");
+  const [activeSide, setActiveSide] = useState<ActiveSide>("ru");
+  const [mapView] = useState<MapView>("ukraine");
+  const [panelTab, setPanelTab] = useState<PanelTab>("attack");
+
+  // Selection state
+  const [selectedWeapon, setSelectedWeapon] = useState<string>("shahed136");
+  const [selectedPVO, setSelectedPVO] = useState<string>("patriot");
+  const [selectedSpawn, setSelectedSpawn] = useState<SpawnDir>("belgorod");
+  const [spawnCount, setSpawnCount] = useState<number>(1);
+  const [placingPVO, setPlacingPVO] = useState<boolean>(false);
+
+  // Orders
+  const [orders, setOrders] = useState<OrderEntry[]>([]);
+
+  // Simulation state
+  const [bases, setBases] = useState<BaseCity[]>(INITIAL_BASES.map((b) => ({ ...b })));
+  const [units, setUnits] = useState<ActiveUnit[]>([]);
+  const [pvos, setPvos] = useState<ActivePVO[]>([]);
+  const [explosions, setExplosions] = useState<Explosion[]>([]);
+  const [log, setLog] = useState<LogEntry[]>([]);
+  const [tick, setTick] = useState<number>(0);
+
+  const rafRef = useRef<number | null>(null);
+  const lastTickRef = useRef<number>(0);
+  const tickRef = useRef<number>(0);
+  const logRef = useRef<LogEntry[]>([]);
+
+  // Sync tick ref
+  useEffect(() => {
+    tickRef.current = tick;
+  }, [tick]);
+  useEffect(() => {
+    logRef.current = log;
+  }, [log]);
+
+  // ── Add order
+  function addAttackOrder() {
+    if (panelTab !== "attack") return;
+    const sp = SPAWN_POINTS.find((s) => s.id === selectedSpawn);
+    if (!sp || sp.side !== activeSide) return;
+    const existing = orders.find(
+      (o) => !o.isPVO && o.weaponId === selectedWeapon && o.spawnDir === selectedSpawn && o.side === activeSide
+    );
+    if (existing) {
+      setOrders((prev) =>
+        prev.map((o) =>
+          o.id === existing.id ? { ...o, count: o.count + spawnCount } : o
+        )
+      );
+    } else {
+      setOrders((prev) => [
+        ...prev,
+        {
+          id: uid(),
+          weaponId: selectedWeapon,
+          count: spawnCount,
+          spawnDir: selectedSpawn,
+          side: activeSide,
+          isPVO: false,
+        },
+      ]);
+    }
+  }
+
+  // ── Add PVO by map click
+  function handleMapClick(x: number, y: number) {
+    if (phase !== "setup" || !placingPVO) return;
+    const pvoList = activeSide === "ua" ? UA_PVO : RU_PVO;
+    const def = pvoList.find((p) => p.id === selectedPVO);
+    if (!def) return;
+    for (let i = 0; i < spawnCount; i++) {
+      setOrders((prev) => [
+        ...prev,
+        {
+          id: uid(),
+          weaponId: def.id,
+          count: 1,
+          spawnDir: "poland" as SpawnDir,
+          side: activeSide,
+          isPVO: true,
+          pvoX: x + (i * 20 - (spawnCount * 10) / 2),
+          pvoY: y,
+        },
+      ]);
+    }
+    setPlacingPVO(false);
+  }
+
+  // ── Start battle
+  const startBattle = useCallback(() => {
+    const newUnits: ActiveUnit[] = [];
+    const newPvos: ActivePVO[] = [];
+
+    orders.forEach((order) => {
+      if (order.isPVO) {
+        const def = getPVODef(order.weaponId, order.side);
+        if (!def) return;
+        const x = order.pvoX ?? 400;
+        const y = order.pvoY ?? 300;
+        newPvos.push({
+          uid: uid(),
+          defId: def.id,
+          x,
+          y,
+          hp: 30,
+          dead: false,
+          side: order.side,
+          isPVO: true,
+          color: def.color,
+          range: def.range,
+          fireRate: def.fireRate,
+          dmg: def.dmg,
+          cooldown: 0,
+          detectsStealth: def.detectsStealth ?? false,
+          antiballistic: def.antiballistic ?? false,
+        });
+      } else {
+        const wdef = getWeaponDef(order.weaponId);
+        if (!wdef) return;
+        const sp = getSpawnPoint(order.spawnDir);
+        const uaBases = bases.filter((b) => b.hp > 0);
+        for (let i = 0; i < order.count; i++) {
+          if (uaBases.length === 0) break;
+          const target = uaBases[Math.floor(Math.random() * uaBases.length)];
+          newUnits.push({
+            uid: uid(),
+            weaponId: wdef.id,
+            x: sp.x + (Math.random() - 0.5) * 30,
+            y: sp.y + (Math.random() - 0.5) * 30,
+            targetX: target.x,
+            targetY: target.y,
+            hp: wdef.hp,
+            maxHp: wdef.hp,
+            dead: false,
+            intercepted: false,
+            side: order.side,
+            isPVO: false,
+            color: wdef.color,
+            speed: wdef.speed * (1 + (Math.random() - 0.5) * 0.2),
+            dmg: wdef.dmg,
+            stealth: wdef.stealth ?? false,
+            ballistic: wdef.ballistic ?? false,
+            hypersonic: wdef.hypersonic ?? false,
+          });
+        }
+      }
+    });
+
+    setUnits(newUnits);
+    setPvos(newPvos);
+    setExplosions([]);
+    setLog([]);
+    setTick(0);
+    lastTickRef.current = performance.now();
+    setPhase("battle");
+  }, [orders, bases]);
+
+  // ── Game loop
+  const gameLoop = useCallback(() => {
+    const now = performance.now();
+    if (now - lastTickRef.current < 50) {
+      rafRef.current = requestAnimationFrame(gameLoop);
+      return;
+    }
+    lastTickRef.current = now;
+
+    setTick((t) => t + 1);
+
+    setUnits((prevUnits) => {
+      setPvos((prevPvos) => {
+        setBases((prevBases) => {
+          const newExplosions: Explosion[] = [];
+          const newLog: LogEntry[] = [];
+          const currentTick = tickRef.current;
+
+          // Move units
+          const movedUnits = prevUnits.map((u) => {
+            if (u.dead || u.intercepted) return u;
+            const d = dist(u.x, u.y, u.targetX, u.targetY);
+            if (d < 8) return u; // will be handled below
+            const vx = ((u.targetX - u.x) / d) * u.speed * 1.2;
+            const vy = ((u.targetY - u.y) / d) * u.speed * 1.2;
+            return { ...u, x: u.x + vx, y: u.y + vy };
+          });
+
+          // PVO fire
+          const updatedPvos = prevPvos.map((pvo) => {
+            if (pvo.dead) return pvo;
+            if (pvo.cooldown > 0) return { ...pvo, cooldown: pvo.cooldown - 1 };
+            return pvo;
+          });
+
+          // Check intercepts
+          const interceptedIds = new Set<string>();
+          const updatedPvos2 = updatedPvos.map((pvo) => {
+            if (pvo.dead || pvo.cooldown > 0) return pvo;
+            for (const u of movedUnits) {
+              if (u.dead || u.intercepted || interceptedIds.has(u.uid)) continue;
+              // stealth check
+              if (u.stealth && !pvo.detectsStealth) continue;
+              // ballistic check
+              if (u.ballistic && !pvo.antiballistic && pvo.range < 120) continue;
+              const d = dist(pvo.x, pvo.y, u.x, u.y);
+              if (d <= pvo.range) {
+                interceptedIds.add(u.uid);
+                newExplosions.push({ uid: uid(), x: u.x, y: u.y, t: 0 });
+                newLog.push({
+                  t: currentTick,
+                  msg: `ПВО уничтожило ${u.weaponId} [${Math.round(u.x)},${Math.round(u.y)}]`,
+                  kind: "intercept",
+                });
+                return { ...pvo, cooldown: Math.max(1, Math.round(60 / pvo.fireRate)) };
+              }
+            }
+            return pvo;
+          });
+
+          // Apply intercepts
+          const finalUnits = movedUnits.map((u) =>
+            interceptedIds.has(u.uid) ? { ...u, intercepted: true } : u
+          );
+
+          // Check hits on bases
+          const hitBaseIds = new Set<string>();
+          const hitByUnit: { uid: string; baseId: string; dmg: number }[] = [];
+          for (const u of finalUnits) {
+            if (u.dead || u.intercepted) continue;
+            for (const b of prevBases) {
+              if (b.hp <= 0) continue;
+              const d = dist(u.x, u.y, b.x, b.y);
+              if (d < 12) {
+                hitByUnit.push({ uid: u.uid, baseId: b.id, dmg: u.dmg });
+                hitBaseIds.add(b.id);
+                newExplosions.push({ uid: uid(), x: u.x, y: u.y, t: 0 });
+                newLog.push({
+                  t: currentTick,
+                  msg: `${b.label} поражена! -${u.dmg} HP (${u.weaponId})`,
+                  kind: "hit",
+                });
+              }
+            }
+          }
+
+          // Update bases
+          const updatedBases = prevBases.map((b) => {
+            const hits = hitByUnit.filter((h) => h.baseId === b.id);
+            const totalDmg = hits.reduce((acc, h) => acc + h.dmg, 0);
+            const newHp = Math.max(0, b.hp - totalDmg);
+            if (newHp <= 0 && b.hp > 0) {
+              newLog.push({ t: currentTick, msg: `${b.label} УНИЧТОЖЕНА!`, kind: "destroy" });
+            }
+            return { ...b, hp: newHp };
+          });
+
+          // Mark hit units as dead
+          const hitUnitIds = new Set(hitByUnit.map((h) => h.uid));
+          const finalUnits2 = finalUnits.map((u) =>
+            hitUnitIds.has(u.uid) ? { ...u, dead: true } : u
+          );
+
+          // Expire explosions
+          setExplosions((prev) => {
+            const alive = prev
+              .map((e) => ({ ...e, t: e.t + 1 }))
+              .filter((e) => e.t < 40);
+            return [...alive, ...newExplosions];
+          });
+
+          if (newLog.length > 0) {
+            setLog((prev) => [...newLog, ...prev].slice(0, 80));
+          }
+
+          // Check end condition
+          const allDead = finalUnits2.every((u) => u.dead || u.intercepted);
+          const allDestroyed = updatedBases.every((b) => b.hp <= 0);
+          if (allDead || allDestroyed) {
+            setTimeout(() => setPhase("result"), 600);
+          }
+
+          // Write back pvos
+          setTimeout(() => setPvos(updatedPvos2), 0);
+
+          return updatedBases;
+        });
+        return prevPvos; // will be overwritten by setTimeout above
+      });
+      return prevUnits; // will be overwritten
+    });
+
+    rafRef.current = requestAnimationFrame(gameLoop);
+  }, []);
+
+  // Proper game loop with direct state refs
+  const unitsRef = useRef<ActiveUnit[]>([]);
+  const pvosRef = useRef<ActivePVO[]>([]);
+  const basesRef = useRef<BaseCity[]>(INITIAL_BASES.map((b) => ({ ...b })));
+  const explosionsRef = useRef<Explosion[]>([]);
+
+  useEffect(() => {
+    unitsRef.current = units;
+  }, [units]);
+  useEffect(() => {
+    pvosRef.current = pvos;
+  }, [pvos]);
+  useEffect(() => {
+    basesRef.current = bases;
+  }, [bases]);
+  useEffect(() => {
+    explosionsRef.current = explosions;
+  }, [explosions]);
+
+  const runLoop = useCallback(() => {
+    const now = performance.now();
+    if (now - lastTickRef.current < 50) {
+      rafRef.current = requestAnimationFrame(runLoop);
+      return;
+    }
+    lastTickRef.current = now;
+
+    const curUnits = unitsRef.current;
+    const curPvos = pvosRef.current;
+    const curBases = basesRef.current;
+    const curTick = tickRef.current + 1;
+    tickRef.current = curTick;
+
+    const newExplosions: Explosion[] = [];
+    const newLogEntries: LogEntry[] = [];
+
+    // Move units toward targets
+    const movedUnits: ActiveUnit[] = curUnits.map((u) => {
+      if (u.dead || u.intercepted) return u;
+      const d = dist(u.x, u.y, u.targetX, u.targetY);
+      if (d < 8) return u;
+      const vx = ((u.targetX - u.x) / d) * u.speed * 1.5;
+      const vy = ((u.targetY - u.y) / d) * u.speed * 1.5;
+      return { ...u, x: u.x + vx, y: u.y + vy };
+    });
+
+    // PVO fire at units in range
+    const interceptedIds = new Set<string>();
+    const updatedPvos: ActivePVO[] = curPvos.map((pvo) => {
+      if (pvo.dead) return pvo;
+      let cd = pvo.cooldown;
+      if (cd > 0) return { ...pvo, cooldown: cd - 1 };
+      for (const u of movedUnits) {
+        if (u.dead || u.intercepted || interceptedIds.has(u.uid)) continue;
+        if (u.stealth && !pvo.detectsStealth) continue;
+        if (u.ballistic && !pvo.antiballistic && pvo.range < 120) continue;
+        if (pvo.side === u.side) continue; // don't shoot own units
+        const d = dist(pvo.x, pvo.y, u.x, u.y);
+        if (d <= pvo.range) {
+          interceptedIds.add(u.uid);
+          newExplosions.push({ uid: uid(), x: u.x, y: u.y, t: 0 });
+          newLogEntries.push({
+            t: curTick,
+            msg: `[ПВО] ${pvo.defId} сбил ${u.weaponId}`,
+            kind: "intercept",
+          });
+          cd = Math.max(1, Math.round(60 / pvo.fireRate));
+          return { ...pvo, cooldown: cd };
+        }
+      }
+      return pvo;
+    });
+
+    // Apply intercepts to units
+    const postInterceptUnits: ActiveUnit[] = movedUnits.map((u) =>
+      interceptedIds.has(u.uid) ? { ...u, intercepted: true } : u
+    );
+
+    // Check hits on bases
+    const hitByUnit: { uid: string; baseId: string; dmg: number }[] = [];
+    for (const u of postInterceptUnits) {
+      if (u.dead || u.intercepted) continue;
+      for (const b of curBases) {
+        if (b.hp <= 0) continue;
+        if (u.side !== "ru") continue; // only Russia targets UA bases
+        const d = dist(u.x, u.y, b.x, b.y);
+        if (d < 12) {
+          hitByUnit.push({ uid: u.uid, baseId: b.id, dmg: u.dmg });
+          newExplosions.push({ uid: uid(), x: u.x, y: u.y, t: 0 });
+          newLogEntries.push({
+            t: curTick,
+            msg: `[УДАР] ${b.label} -${u.dmg}HP (${u.weaponId})`,
+            kind: "hit",
+          });
+        }
+      }
+    }
+
+    const hitUnitIds = new Set(hitByUnit.map((h) => h.uid));
+    const finalUnits: ActiveUnit[] = postInterceptUnits.map((u) =>
+      hitUnitIds.has(u.uid) ? { ...u, dead: true } : u
+    );
+
+    // Update bases
+    const updatedBases: BaseCity[] = curBases.map((b) => {
+      const dmg = hitByUnit.filter((h) => h.baseId === b.id).reduce((a, h) => a + h.dmg, 0);
+      const newHp = Math.max(0, b.hp - dmg);
+      if (newHp <= 0 && b.hp > 0) {
+        newLogEntries.push({ t: curTick, msg: `[!] ${b.label} УНИЧТОЖЕНА`, kind: "destroy" });
+      }
+      return { ...b, hp: newHp };
+    });
+
+    // Update explosions
+    const updatedExplosions = [
+      ...explosionsRef.current.map((e) => ({ ...e, t: e.t + 1 })).filter((e) => e.t < 40),
+      ...newExplosions,
+    ];
+
+    // Commit state
+    unitsRef.current = finalUnits;
+    pvosRef.current = updatedPvos;
+    basesRef.current = updatedBases;
+    explosionsRef.current = updatedExplosions;
+
+    setUnits([...finalUnits]);
+    setPvos([...updatedPvos]);
+    setBases([...updatedBases]);
+    setExplosions([...updatedExplosions]);
+    setTick(curTick);
+
+    if (newLogEntries.length > 0) {
+      setLog((prev) => [...newLogEntries, ...prev].slice(0, 100));
+    }
+
+    // End check
+    const allGone = finalUnits.every((u) => u.dead || u.intercepted);
+    const allDestroyed = updatedBases.every((b) => b.hp <= 0);
+    if (allGone || allDestroyed) {
+      setPhase("result");
+      return;
+    }
+
+    rafRef.current = requestAnimationFrame(runLoop);
+  }, []);
+
+  useEffect(() => {
+    if (phase === "battle") {
+      lastTickRef.current = performance.now();
+      rafRef.current = requestAnimationFrame(runLoop);
+    } else {
+      if (rafRef.current !== null) {
+        cancelAnimationFrame(rafRef.current);
+        rafRef.current = null;
+      }
+    }
+    return () => {
+      if (rafRef.current !== null) {
+        cancelAnimationFrame(rafRef.current);
+        rafRef.current = null;
+      }
+    };
+  }, [phase, runLoop]);
+
+  // Suppress unused warning for gameLoop
+  void gameLoop;
+
+  function pauseResume() {
+    setPhase((p) => (p === "battle" ? "paused" : "battle"));
+  }
+
+  function reset() {
+    if (rafRef.current !== null) {
+      cancelAnimationFrame(rafRef.current);
+      rafRef.current = null;
+    }
+    setPhase("setup");
+    setOrders([]);
+    setBases(INITIAL_BASES.map((b) => ({ ...b })));
+    basesRef.current = INITIAL_BASES.map((b) => ({ ...b }));
+    setUnits([]);
+    unitsRef.current = [];
+    setPvos([]);
+    pvosRef.current = [];
+    setExplosions([]);
+    explosionsRef.current = [];
+    setLog([]);
+    setTick(0);
+    tickRef.current = 0;
+    setPlacingPVO(false);
+  }
+
+  function handleStartBattle() {
+    // Initialize refs before starting
+    const newUnits: ActiveUnit[] = [];
+    const newPvos: ActivePVO[] = [];
+    const newBases = INITIAL_BASES.map((b) => ({ ...b }));
+
+    orders.forEach((order) => {
+      if (order.isPVO) {
+        const def = getPVODef(order.weaponId, order.side);
+        if (!def) return;
+        newPvos.push({
+          uid: uid(),
+          defId: def.id,
+          x: order.pvoX ?? 400,
+          y: order.pvoY ?? 300,
+          hp: 30,
+          dead: false,
+          side: order.side,
+          isPVO: true,
+          color: def.color,
+          range: def.range,
+          fireRate: def.fireRate,
+          dmg: def.dmg,
+          cooldown: 0,
+          detectsStealth: def.detectsStealth ?? false,
+          antiballistic: def.antiballistic ?? false,
+        });
+      } else {
+        const wdef = getWeaponDef(order.weaponId);
+        if (!wdef) return;
+        const sp = getSpawnPoint(order.spawnDir);
+        for (let i = 0; i < order.count; i++) {
+          const target = newBases[Math.floor(Math.random() * newBases.length)];
+          newUnits.push({
+            uid: uid(),
+            weaponId: wdef.id,
+            x: sp.x + (Math.random() - 0.5) * 40,
+            y: sp.y + (Math.random() - 0.5) * 40,
+            targetX: target.x,
+            targetY: target.y,
+            hp: wdef.hp,
+            maxHp: wdef.hp,
+            dead: false,
+            intercepted: false,
+            side: order.side,
+            isPVO: false,
+            color: wdef.color,
+            speed: wdef.speed * (0.9 + Math.random() * 0.2),
+            dmg: wdef.dmg,
+            stealth: wdef.stealth ?? false,
+            ballistic: wdef.ballistic ?? false,
+            hypersonic: wdef.hypersonic ?? false,
+          });
+        }
+      }
+    });
+
+    unitsRef.current = newUnits;
+    pvosRef.current = newPvos;
+    basesRef.current = newBases;
+    explosionsRef.current = [];
+    tickRef.current = 0;
+
+    setUnits(newUnits);
+    setPvos(newPvos);
+    setBases(newBases);
+    setExplosions([]);
+    setLog([]);
+    setTick(0);
+    lastTickRef.current = performance.now();
+    setPhase("battle");
+  }
+
+  // Stats for result screen
+  const totalIntercepted = units.filter((u) => u.intercepted).length;
+  const totalHit = units.filter((u) => u.dead && !u.intercepted).length;
+  const basesDestroyed = bases.filter((b) => b.hp <= 0).length;
+  const totalDmgDealt = INITIAL_BASES.reduce((acc, b) => {
+    const cur = bases.find((bb) => bb.id === b.id);
+    return acc + (b.maxHp - (cur?.hp ?? 0));
+  }, 0);
+
+  const ruSpawns = SPAWN_POINTS.filter((s) => s.side === "ru");
+  const uaSpawns = SPAWN_POINTS.filter((s) => s.side === "ua");
+
+  const activeWeaponList = RU_WEAPONS;
+  const activePVOList = activeSide === "ua" ? UA_PVO : RU_PVO;
+
+  const accentColor = activeSide === "ru" ? "#ef4444" : "#3b82f6";
+
+  return (
+    <div
+      style={{
+        minHeight: "100vh",
+        background: "#070d07",
+        fontFamily: "IBM Plex Mono, monospace",
+        color: "#c8d4c8",
+        display: "flex",
+        flexDirection: "column",
+        overflow: "hidden",
+      }}
+    >
+      {/* ── TOP BAR ── */}
+      <div
+        style={{
+          background: "#090f09",
+          borderBottom: "1px solid #1a3a1a",
+          padding: "6px 12px",
+          display: "flex",
+          alignItems: "center",
+          gap: 12,
+          flexWrap: "wrap",
+        }}
+      >
+        {/* Title */}
+        <div
+          style={{
+            color: "#4ade80",
+            fontSize: 12,
+            fontWeight: "bold",
+            letterSpacing: 3,
+            whiteSpace: "nowrap",
+          }}
+        >
+          ОПЕРАЦИЯ РУБЕЖ 2.0
+        </div>
+
+        <div style={{ width: 1, height: 24, background: "#1a3a1a" }} />
+
+        {/* Map selector */}
+        <div style={{ display: "flex", gap: 4 }}>
+          <button
+            style={{
+              background: mapView === "ukraine" ? "#1a3a1a" : "transparent",
+              border: "1px solid #1a3a1a",
+              color: mapView === "ukraine" ? "#4ade80" : "#4a6a4a",
+              fontSize: 9,
+              padding: "3px 8px",
+              borderRadius: 3,
+              cursor: "pointer",
+              fontFamily: "IBM Plex Mono",
+            }}
+          >
+            УКРАИНА
+          </button>
+          <button
+            style={{
+              background: mapView === "russia" ? "#1a3a1a" : "transparent",
+              border: "1px solid #1a3a1a",
+              color: mapView === "russia" ? "#4ade80" : "#4a6a4a",
+              fontSize: 9,
+              padding: "3px 8px",
+              borderRadius: 3,
+              cursor: "pointer",
+              fontFamily: "IBM Plex Mono",
+            }}
+          >
+            РОССИЯ
+          </button>
+        </div>
+
+        <div style={{ width: 1, height: 24, background: "#1a3a1a" }} />
+
+        {/* Side selector */}
+        <div style={{ display: "flex", gap: 4 }}>
+          <button
+            onClick={() => {
+              setActiveSide("ru");
+              setSelectedSpawn("belgorod");
+            }}
+            style={{
+              background: activeSide === "ru" ? "#ef444422" : "transparent",
+              border: `1px solid ${activeSide === "ru" ? "#ef4444" : "#1a3a1a"}`,
+              color: activeSide === "ru" ? "#ef4444" : "#4a6a4a",
+              fontSize: 9,
+              padding: "3px 10px",
+              borderRadius: 3,
+              cursor: "pointer",
+              fontFamily: "IBM Plex Mono",
+              fontWeight: activeSide === "ru" ? "bold" : "normal",
+            }}
+          >
+            РОССИЯ
+          </button>
+          <button
+            onClick={() => {
+              setActiveSide("ua");
+              setSelectedSpawn("poland");
+            }}
+            style={{
+              background: activeSide === "ua" ? "#3b82f622" : "transparent",
+              border: `1px solid ${activeSide === "ua" ? "#3b82f6" : "#1a3a1a"}`,
+              color: activeSide === "ua" ? "#3b82f6" : "#4a6a4a",
+              fontSize: 9,
+              padding: "3px 10px",
+              borderRadius: 3,
+              cursor: "pointer",
+              fontFamily: "IBM Plex Mono",
+              fontWeight: activeSide === "ua" ? "bold" : "normal",
+            }}
+          >
+            УКРАИНА/НАТО
+          </button>
+        </div>
+
+        <div style={{ flex: 1 }} />
+
+        {/* Status */}
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 8,
+            fontSize: 9,
+            color: "#4a6a4a",
+          }}
+        >
+          <div
+            style={{
+              width: 8,
+              height: 8,
+              borderRadius: "50%",
+              background:
+                phase === "battle"
+                  ? "#4ade80"
+                  : phase === "result"
+                  ? "#ef4444"
+                  : phase === "paused"
+                  ? "#facc15"
+                  : "#4a6a4a",
+              boxShadow:
+                phase === "battle" ? "0 0 6px #4ade80" : "none",
+            }}
+          />
+          <span>
+            {phase === "setup"
+              ? "ПОДГОТОВКА"
+              : phase === "battle"
+              ? `ТИК: ${tick}`
+              : phase === "paused"
+              ? "ПАУЗА"
+              : "ЗАВЕРШЕНО"}
+          </span>
+        </div>
+
+        <div style={{ width: 1, height: 24, background: "#1a3a1a" }} />
+
+        {/* Control buttons */}
+        {phase === "setup" && (
+          <button
+            onClick={handleStartBattle}
+            disabled={orders.length === 0}
+            style={{
+              background: orders.length > 0 ? "#ef444422" : "#0d160d",
+              border: `1px solid ${orders.length > 0 ? "#ef4444" : "#1a3a1a"}`,
+              color: orders.length > 0 ? "#ef4444" : "#2a4a2a",
+              fontSize: 10,
+              padding: "4px 14px",
+              borderRadius: 3,
+              cursor: orders.length > 0 ? "pointer" : "not-allowed",
+              fontFamily: "IBM Plex Mono",
+              fontWeight: "bold",
+              letterSpacing: 1,
+            }}
+          >
+            ЗАПУСК
+          </button>
+        )}
+        {(phase === "battle" || phase === "paused") && (
+          <button
+            onClick={pauseResume}
+            style={{
+              background: "#facc1522",
+              border: "1px solid #facc15",
+              color: "#facc15",
+              fontSize: 10,
+              padding: "4px 12px",
+              borderRadius: 3,
+              cursor: "pointer",
+              fontFamily: "IBM Plex Mono",
+            }}
+          >
+            {phase === "battle" ? "ПАУЗА" : "ПРОДОЛЖ"}
+          </button>
+        )}
+        <button
+          onClick={reset}
+          style={{
+            background: "transparent",
+            border: "1px solid #1a3a1a",
+            color: "#4a6a4a",
+            fontSize: 10,
+            padding: "4px 10px",
+            borderRadius: 3,
+            cursor: "pointer",
+            fontFamily: "IBM Plex Mono",
+          }}
+        >
+          СБРОС
+        </button>
+      </div>
+
+      {/* ── MAIN LAYOUT ── */}
+      <div style={{ display: "flex", flex: 1, overflow: "hidden", height: "calc(100vh - 44px)" }}>
+        {/* ── LEFT PANEL ── */}
+        <div
+          style={{
+            width: 300,
+            minWidth: 300,
+            background: "#090f09",
+            borderRight: "1px solid #1a3a1a",
+            display: "flex",
+            flexDirection: "column",
+            overflow: "hidden",
+          }}
+        >
+          {/* Tabs */}
+          <div
+            style={{
+              display: "flex",
+              borderBottom: "1px solid #1a3a1a",
+            }}
+          >
+            {(["attack", "pvo", "log"] as PanelTab[]).map((tab) => {
+              const labels: Record<PanelTab, string> = {
+                attack: "АТАКА",
+                pvo: "ПВО",
+                log: "ЖУРНАЛ",
+              };
+              return (
+                <button
+                  key={tab}
+                  onClick={() => setPanelTab(tab)}
+                  style={{
+                    flex: 1,
+                    background: panelTab === tab ? "#0d1a0d" : "transparent",
+                    border: "none",
+                    borderBottom: `2px solid ${panelTab === tab ? accentColor : "transparent"}`,
+                    color: panelTab === tab ? accentColor : "#4a6a4a",
+                    fontSize: 9,
+                    padding: "6px 0",
+                    cursor: "pointer",
+                    fontFamily: "IBM Plex Mono",
+                    letterSpacing: 1,
+                  }}
+                >
+                  {labels[tab]}
+                </button>
+              );
+            })}
+          </div>
+
+          <div style={{ flex: 1, overflowY: "auto", padding: "8px" }}>
+            {/* ATTACK TAB */}
+            {panelTab === "attack" && (
+              <div>
+                <div
+                  style={{
+                    fontSize: 8,
+                    color: "#4a6a4a",
+                    letterSpacing: 2,
+                    marginBottom: 6,
+                    textTransform: "uppercase",
+                  }}
+                >
+                  ВЫБЕРИТЕ ОРУЖИЕ
+                </div>
+                {activeWeaponList.map((w) => (
+                  <WeaponCard
+                    key={w.id}
+                    w={w}
+                    selected={selectedWeapon === w.id}
+                    onSelect={() => setSelectedWeapon(w.id)}
+                  />
+                ))}
+
+                <div
+                  style={{
+                    fontSize: 8,
+                    color: "#4a6a4a",
+                    letterSpacing: 2,
+                    margin: "10px 0 6px",
+                    textTransform: "uppercase",
+                  }}
+                >
+                  ТОЧКА ВЫЛЕТА
+                </div>
+                <div style={{ display: "flex", flexWrap: "wrap" }}>
+                  {(activeSide === "ru" ? ruSpawns : uaSpawns).map((sp) => (
+                    <SpawnBtn
+                      key={sp.id}
+                      sp={sp}
+                      selected={selectedSpawn === sp.id}
+                      onSelect={() => setSelectedSpawn(sp.id)}
+                      side={activeSide}
+                    />
+                  ))}
+                </div>
+
+                <div
+                  style={{
+                    fontSize: 8,
+                    color: "#4a6a4a",
+                    letterSpacing: 2,
+                    margin: "10px 0 6px",
+                  }}
+                >
+                  КОЛИЧЕСТВО
+                </div>
+                <div style={{ display: "flex", gap: 4, marginBottom: 8 }}>
+                  {[1, 5, 10, 25].map((n) => (
+                    <button
+                      key={n}
+                      onClick={() => setSpawnCount(n)}
+                      style={{
+                        background: spawnCount === n ? accentColor + "22" : "#0d160d",
+                        border: `1px solid ${spawnCount === n ? accentColor : "#1a3a1a"}`,
+                        color: spawnCount === n ? accentColor : "#4a6a4a",
+                        fontSize: 9,
+                        padding: "3px 8px",
+                        borderRadius: 3,
+                        cursor: "pointer",
+                        fontFamily: "IBM Plex Mono",
+                      }}
+                    >
+                      +{n}
+                    </button>
+                  ))}
+                  <input
+                    type="number"
+                    min={1}
+                    max={100}
+                    value={spawnCount}
+                    onChange={(e) => setSpawnCount(Math.max(1, parseInt(e.target.value) || 1))}
+                    style={{
+                      width: 44,
+                      background: "#0d160d",
+                      border: "1px solid #1a3a1a",
+                      color: "#c8d4c8",
+                      fontSize: 9,
+                      padding: "3px 4px",
+                      borderRadius: 3,
+                      fontFamily: "IBM Plex Mono",
+                    }}
+                  />
+                </div>
+
+                <button
+                  onClick={addAttackOrder}
+                  disabled={phase !== "setup"}
+                  style={{
+                    width: "100%",
+                    background: phase === "setup" ? accentColor + "22" : "#0d160d",
+                    border: `1px solid ${phase === "setup" ? accentColor : "#1a3a1a"}`,
+                    color: phase === "setup" ? accentColor : "#2a4a2a",
+                    fontSize: 9,
+                    padding: "5px",
+                    borderRadius: 3,
+                    cursor: phase === "setup" ? "pointer" : "not-allowed",
+                    fontFamily: "IBM Plex Mono",
+                    letterSpacing: 1,
+                    marginBottom: 8,
+                  }}
+                >
+                  + ДОБАВИТЬ В ВОЛНУ
+                </button>
+
+                {/* Orders list */}
+                {orders.filter((o) => !o.isPVO && o.side === activeSide).length > 0 && (
+                  <div>
+                    <div style={{ fontSize: 8, color: "#4a6a4a", letterSpacing: 2, marginBottom: 4 }}>
+                      ОЧЕРЕДЬ АТАКИ
+                    </div>
+                    <div
+                      style={{
+                        border: "1px solid #1a3a1a",
+                        borderRadius: 3,
+                        overflow: "hidden",
+                      }}
+                    >
+                      {orders
+                        .filter((o) => !o.isPVO && o.side === activeSide)
+                        .map((o) => (
+                          <OrderRow
+                            key={o.id}
+                            o={o}
+                            onRemove={() => setOrders((prev) => prev.filter((x) => x.id !== o.id))}
+                          />
+                        ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* PVO TAB */}
+            {panelTab === "pvo" && (
+              <div>
+                <div
+                  style={{
+                    fontSize: 8,
+                    color: "#4a6a4a",
+                    letterSpacing: 2,
+                    marginBottom: 6,
+                  }}
+                >
+                  СИСТЕМЫ ПВО ({activeSide === "ua" ? "НАТО/УКРАИНА" : "РОССИЯ"})
+                </div>
+                {activePVOList.map((p) => (
+                  <PVOCard
+                    key={p.id}
+                    p={p}
+                    selected={selectedPVO === p.id}
+                    onSelect={() => setSelectedPVO(p.id)}
+                    side={activeSide}
+                  />
+                ))}
+
+                <div
+                  style={{
+                    fontSize: 8,
+                    color: "#4a6a4a",
+                    letterSpacing: 2,
+                    margin: "10px 0 6px",
+                  }}
+                >
+                  КОЛИЧЕСТВО
+                </div>
+                <div style={{ display: "flex", gap: 4, marginBottom: 8 }}>
+                  {[1, 3, 5, 10].map((n) => (
+                    <button
+                      key={n}
+                      onClick={() => setSpawnCount(n)}
+                      style={{
+                        background: spawnCount === n ? accentColor + "22" : "#0d160d",
+                        border: `1px solid ${spawnCount === n ? accentColor : "#1a3a1a"}`,
+                        color: spawnCount === n ? accentColor : "#4a6a4a",
+                        fontSize: 9,
+                        padding: "3px 8px",
+                        borderRadius: 3,
+                        cursor: "pointer",
+                        fontFamily: "IBM Plex Mono",
+                      }}
+                    >
+                      ×{n}
+                    </button>
+                  ))}
+                </div>
+
+                <button
+                  onClick={() => setPlacingPVO((v) => !v)}
+                  disabled={phase !== "setup"}
+                  style={{
+                    width: "100%",
+                    background:
+                      placingPVO
+                        ? "#facc1522"
+                        : phase === "setup"
+                        ? accentColor + "22"
+                        : "#0d160d",
+                    border: `1px solid ${placingPVO ? "#facc15" : phase === "setup" ? accentColor : "#1a3a1a"}`,
+                    color: placingPVO ? "#facc15" : phase === "setup" ? accentColor : "#2a4a2a",
+                    fontSize: 9,
+                    padding: "5px",
+                    borderRadius: 3,
+                    cursor: phase === "setup" ? "pointer" : "not-allowed",
+                    fontFamily: "IBM Plex Mono",
+                    letterSpacing: 1,
+                    marginBottom: 8,
+                  }}
+                >
+                  {placingPVO ? "КЛИКНИТЕ НА КАРТЕ..." : "РАЗМЕСТИТЬ НА КАРТЕ"}
+                </button>
+
+                {/* PVO Orders list */}
+                {orders.filter((o) => o.isPVO && o.side === activeSide).length > 0 && (
+                  <div>
+                    <div style={{ fontSize: 8, color: "#4a6a4a", letterSpacing: 2, marginBottom: 4 }}>
+                      РАЗМЕЩЁННЫЕ ПВО
+                    </div>
+                    <div
+                      style={{
+                        border: "1px solid #1a3a1a",
+                        borderRadius: 3,
+                        overflow: "hidden",
+                      }}
+                    >
+                      {orders
+                        .filter((o) => o.isPVO && o.side === activeSide)
+                        .map((o) => (
+                          <OrderRow
+                            key={o.id}
+                            o={o}
+                            onRemove={() => setOrders((prev) => prev.filter((x) => x.id !== o.id))}
+                          />
+                        ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* LOG TAB */}
+            {panelTab === "log" && (
+              <div>
+                <div style={{ fontSize: 8, color: "#4a6a4a", letterSpacing: 2, marginBottom: 6 }}>
+                  БОЕВОЙ ЖУРНАЛ
+                </div>
+                {log.length === 0 && (
+                  <div style={{ fontSize: 9, color: "#2a4a2a", fontFamily: "IBM Plex Mono" }}>
+                    Журнал пуст
+                  </div>
+                )}
+                {log.map((entry, i) => (
+                  <LogLine key={i} entry={entry} />
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Bottom status bar */}
+          <div
+            style={{
+              borderTop: "1px solid #1a3a1a",
+              padding: "6px 8px",
+              fontSize: 8,
+              color: "#4a6a4a",
+              display: "flex",
+              justifyContent: "space-between",
+            }}
+          >
+            <span>
+              АТАК: {orders.filter((o) => !o.isPVO).reduce((a, o) => a + o.count, 0)}
+            </span>
+            <span>
+              ПВО: {orders.filter((o) => o.isPVO).length}
+            </span>
+            <span>
+              ЦЕЛЕЙ: {orders.filter((o) => !o.isPVO).length}
+            </span>
+          </div>
+        </div>
+
+        {/* ── MAP ── */}
+        <div
+          style={{
+            flex: 1,
+            position: "relative",
+            overflow: "hidden",
+            background: "#070d07",
+          }}
+        >
+          <UkraineMap
+            bases={bases}
+            units={units}
+            pvos={pvos}
+            explosions={explosions}
+            onMapClick={handleMapClick}
+            phase={phase}
+            placingPVO={placingPVO}
+          />
+
+          {/* Result overlay */}
+          {phase === "result" && (
+            <div
+              style={{
+                position: "absolute",
+                inset: 0,
+                background: "#070d07dd",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                flexDirection: "column",
+                gap: 16,
+              }}
+            >
+              <div
+                style={{
+                  fontSize: 22,
+                  fontWeight: "bold",
+                  letterSpacing: 4,
+                  color: basesDestroyed > 2 ? "#ef4444" : "#4ade80",
+                  fontFamily: "IBM Plex Mono",
+                  textShadow: `0 0 20px ${basesDestroyed > 2 ? "#ef4444" : "#4ade80"}`,
+                }}
+              >
+                {basesDestroyed > 2 ? "РОССИЯ ПОБЕДИЛА" : "УКРАИНА УСТОЯЛА"}
+              </div>
+
+              <div
+                style={{
+                  background: "#0d160d",
+                  border: "1px solid #1a3a1a",
+                  borderRadius: 6,
+                  padding: "16px 24px",
+                  minWidth: 320,
+                }}
+              >
+                <div
+                  style={{
+                    fontSize: 10,
+                    color: "#4a6a4a",
+                    letterSpacing: 2,
+                    marginBottom: 12,
+                    textAlign: "center",
+                  }}
+                >
+                  ИТОГИ ОПЕРАЦИИ
+                </div>
+                <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                  {[
+                    { label: "Перехвачено целей", value: totalIntercepted, color: "#4ade80" },
+                    { label: "Целей прорвалось", value: totalHit, color: "#f97316" },
+                    { label: "Городов поражено", value: basesDestroyed, color: "#ef4444" },
+                    { label: "Нанесено урона", value: totalDmgDealt, color: "#facc15" },
+                    { label: "Тактических тиков", value: tick, color: "#3b82f6" },
+                  ].map((stat) => (
+                    <div
+                      key={stat.label}
+                      style={{
+                        display: "flex",
+                        justifyContent: "space-between",
+                        fontSize: 10,
+                        fontFamily: "IBM Plex Mono",
+                      }}
+                    >
+                      <span style={{ color: "#8aaa8a" }}>{stat.label}</span>
+                      <span style={{ color: stat.color, fontWeight: "bold" }}>{stat.value}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <button
+                onClick={reset}
+                style={{
+                  background: "#1a3a1a",
+                  border: "1px solid #4ade80",
+                  color: "#4ade80",
+                  fontSize: 11,
+                  padding: "8px 24px",
+                  borderRadius: 4,
+                  cursor: "pointer",
+                  fontFamily: "IBM Plex Mono",
+                  letterSpacing: 2,
+                }}
+              >
+                НОВАЯ ОПЕРАЦИЯ
+              </button>
+            </div>
+          )}
+
+          {/* Live stats overlay (during battle) */}
+          {(phase === "battle" || phase === "paused") && (
+            <div
+              style={{
+                position: "absolute",
+                top: 8,
+                right: 8,
+                background: "#090f09cc",
+                border: "1px solid #1a3a1a",
+                borderRadius: 4,
+                padding: "6px 10px",
+                fontSize: 8,
+                fontFamily: "IBM Plex Mono",
+                color: "#4a6a4a",
+                minWidth: 140,
+              }}
+            >
+              <div style={{ color: "#facc15", marginBottom: 4, letterSpacing: 1 }}>
+                {phase === "paused" ? "■ ПАУЗА" : "▶ БОЕВЫЕ ДЕЙСТВИЯ"}
+              </div>
+              <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 2 }}>
+                <span>Активных целей:</span>
+                <span style={{ color: "#ef4444" }}>
+                  {units.filter((u) => !u.dead && !u.intercepted).length}
+                </span>
+              </div>
+              <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 2 }}>
+                <span>Перехвачено:</span>
+                <span style={{ color: "#4ade80" }}>{totalIntercepted}</span>
+              </div>
+              <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 2 }}>
+                <span>Поражено:</span>
+                <span style={{ color: "#f97316" }}>{totalHit}</span>
+              </div>
+              <div style={{ marginTop: 6, borderTop: "1px solid #1a3a1a", paddingTop: 4 }}>
+                {bases.map((b) => {
+                  const pct = b.hp / b.maxHp;
+                  const col = pct > 0.6 ? "#4ade80" : pct > 0.3 ? "#facc15" : "#ef4444";
+                  return (
+                    <div
+                      key={b.id}
+                      style={{ display: "flex", justifyContent: "space-between", marginBottom: 1 }}
+                    >
+                      <span>{b.label}</span>
+                      <span style={{ color: col }}>
+                        {b.hp}/{b.maxHp}
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* ── RIGHT SIDE PANEL (summary) ── */}
+        <div
+          style={{
+            width: 200,
+            minWidth: 200,
+            background: "#090f09",
+            borderLeft: "1px solid #1a3a1a",
+            display: "flex",
+            flexDirection: "column",
+            overflow: "hidden",
+          }}
+        >
+          <div
+            style={{
+              borderBottom: "1px solid #1a3a1a",
+              padding: "6px 8px",
+              fontSize: 8,
+              color: "#4a6a4a",
+              letterSpacing: 2,
+            }}
+          >
+            СОСТОЯНИЕ ЦЕЛЕЙ
+          </div>
+
+          <div style={{ padding: "8px", flex: 1, overflowY: "auto" }}>
+            {bases.map((b) => {
+              const pct = b.hp / b.maxHp;
+              const col = pct > 0.6 ? "#4ade80" : pct > 0.3 ? "#facc15" : "#ef4444";
+              return (
+                <div
+                  key={b.id}
+                  style={{
+                    marginBottom: 10,
+                    borderBottom: "1px solid #0f1f0f",
+                    paddingBottom: 8,
+                  }}
+                >
+                  <div
+                    style={{
+                      display: "flex",
+                      justifyContent: "space-between",
+                      fontSize: 9,
+                      fontFamily: "IBM Plex Mono",
+                      marginBottom: 3,
+                    }}
+                  >
+                    <span style={{ color: col }}>{b.label}</span>
+                    <span style={{ color: col }}>
+                      {Math.round(pct * 100)}%
+                    </span>
+                  </div>
+                  <div
+                    style={{
+                      height: 4,
+                      background: "#0d160d",
+                      borderRadius: 2,
+                      overflow: "hidden",
+                    }}
+                  >
+                    <div
+                      style={{
+                        height: "100%",
+                        width: `${pct * 100}%`,
+                        background: col,
+                        borderRadius: 2,
+                        transition: "width 0.3s ease",
+                      }}
+                    />
+                  </div>
+                  <div
+                    style={{ fontSize: 7, color: "#2a4a2a", marginTop: 2, fontFamily: "IBM Plex Mono" }}
+                  >
+                    {b.hp} / {b.maxHp} HP
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
+          {/* Spawn info */}
+          <div
+            style={{
+              borderTop: "1px solid #1a3a1a",
+              padding: "6px 8px",
+              fontSize: 7,
+              color: "#2a4a2a",
+              fontFamily: "IBM Plex Mono",
+            }}
+          >
+            <div style={{ marginBottom: 4, color: "#4a6a4a", letterSpacing: 1 }}>ТОЧКИ ВЫЛЕТА</div>
+            {SPAWN_POINTS.map((sp) => (
+              <div
+                key={sp.id}
+                style={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  marginBottom: 2,
+                  color: sp.side === "ru" ? "#ef444460" : "#3b82f660",
+                }}
+              >
+                <span>{sp.label}</span>
+                <span style={{ color: sp.side === "ru" ? "#ef4444" : "#3b82f6" }}>
+                  {sp.side === "ru" ? "РУС" : "НАТ"}
+                </span>
+              </div>
+            ))}
+          </div>
+
+          {/* Legend */}
+          <div
+            style={{
+              borderTop: "1px solid #1a3a1a",
+              padding: "6px 8px",
+              fontSize: 7,
+              color: "#2a4a2a",
+              fontFamily: "IBM Plex Mono",
+            }}
+          >
+            <div style={{ marginBottom: 4, color: "#4a6a4a", letterSpacing: 1 }}>ЛЕГЕНДА</div>
+            {[
+              { col: "#f97316", label: "Дроны RU" },
+              { col: "#dc2626", label: "Ракеты RU" },
+              { col: "#3b82f6", label: "ПВО NATO" },
+              { col: "#ef4444", label: "ПВО RUS" },
+              { col: "#4ade80", label: "Цели" },
+            ].map((item) => (
+              <div
+                key={item.label}
+                style={{ display: "flex", alignItems: "center", gap: 4, marginBottom: 2 }}
+              >
+                <div
+                  style={{
+                    width: 8,
+                    height: 8,
+                    borderRadius: "50%",
+                    background: item.col,
+                  }}
+                />
+                <span style={{ color: "#4a6a4a" }}>{item.label}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
